@@ -5,7 +5,12 @@ interface Message {
   content: string;
 }
 
-export async function generateExplanation(question: string, length: string, conversationHistory?: Message[]): Promise<string> {
+export async function generateExplanation(
+  question: string, 
+  length: string, 
+  conversationHistory?: Message[],
+  complexity?: number
+): Promise<string> {
   try {
     const response = await fetch('/api/generate-explanation', {
       method: 'POST',
@@ -15,6 +20,7 @@ export async function generateExplanation(question: string, length: string, conv
       body: JSON.stringify({ 
         question, 
         length,
+        complexity: complexity !== undefined ? complexity : 0, // Default to 0 if not provided
         conversation: conversationHistory 
       }),
     });

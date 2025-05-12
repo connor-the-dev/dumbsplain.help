@@ -8,6 +8,7 @@ import { Dice5, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LengthSelector } from "@/components/length-selector"
+import { ComplexitySlider } from "@/components/complexity-slider"
 import { ExplanationDisplay } from "@/components/explanation-display"
 import { FollowUpQuestion } from "@/components/follow-up-question"
 import { QuizSection } from "@/components/quiz-section"
@@ -43,6 +44,7 @@ export function ExplanationApp() {
   const [question, setQuestion] = useState("")
   const [isExplaining, setIsExplaining] = useState(false)
   const [length, setLength] = useState<ExplanationLength>("medium")
+  const [complexity, setComplexity] = useState<number>(0) // Default to simplest (5-year-old level)
   const [showQuiz, setShowQuiz] = useState(false)
   const [quizQuestions, setQuizQuestions] = useState<any[]>([])
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false)
@@ -142,8 +144,8 @@ export function ExplanationApp() {
       // Clear the input field
       setQuestion("")
       
-      // Generate the explanation
-      const explanation = await generateExplanation(currentQuestion, length)
+      // Generate the explanation - now passing complexity
+      const explanation = await generateExplanation(currentQuestion, length, undefined, complexity)
       
       // Set up streaming animation
       setStreamTarget(explanation);
@@ -269,7 +271,7 @@ export function ExplanationApp() {
       ]);
       
       // Generate the response to the follow-up question, passing conversation history
-      const response = await generateExplanation(followUpQuestion, length, currentMessages);
+      const response = await generateExplanation(followUpQuestion, length, currentMessages, complexity);
       
       // Set up streaming animation
       setStreamTarget(response);
@@ -317,53 +319,62 @@ export function ExplanationApp() {
   );
 
   return (
-    <div className="space-y-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg"
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="question" className="text-lg font-medium text-gray-200">
-              What would you like me to explain?
-            </label>
-            <div className="relative">
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
               <Input
-                id="question"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask me anything..."
-                className="pl-4 pr-12 py-6 text-lg bg-gray-800 border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded-xl"
+                placeholder="Ask any question..."
+                disabled={isExplaining}
+                className="w-full rounded-xl"
               />
+            </div>
+            <div className="flex gap-2">
               <Button
-                type="submit"
+                type="button"
+                variant="outline"
                 size="icon"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-10 h-10"
-                disabled={!question.trim() || isExplaining}
+                onClick={handleRandomTopic}
+                title="Random topic"
+                disabled={isExplaining}
+                className="rounded-xl"
               >
-                <Send className="h-5 w-5" />
+                <Dice5 className="h-5 w-5" />
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={!question.trim() || isExplaining}
+                className="bg-yellow-500 hover:bg-yellow-600 rounded-xl text-gray-900"
+              >
+                {isExplaining ? (
+                  <div className="flex items-center gap-1">
+                    <span className="animate-pulse">Thinking</span>
+                    <span className="animate-bounce delay-100">.</span>
+                    <span className="animate-bounce delay-200">.</span>
+                    <span className="animate-bounce delay-300">.</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span>Explain</span>
+                    <Send className="h-4 w-4" />
+                  </div>
+                )}
               </Button>
             </div>
           </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <LengthSelector value={length} onChange={setLength} />
-
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                type="button"
-                onClick={handleRandomTopic}
-                className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-full px-4 py-2 flex items-center gap-2"
-              >
-                <Dice5 className="h-5 w-5" />
-                <span>I'm Feeling Curious</span>
-              </Button>
-            </motion.div>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <LengthSelector value={length} onChange={setLength} />
+            </div>
+            <div className="flex-1">
+              <ComplexitySlider value={complexity} onChange={setComplexity} />
+            </div>
           </div>
-        </form>
-      </motion.div>
+        </div>
+      </form>
 
       <AnimatePresence>
         {(isExplaining || conversation) && (

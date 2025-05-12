@@ -8,7 +8,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { question, length, conversation } = await request.json();
+    const { question, length, complexity = 0, conversation } = await request.json();
     
     if (!question) {
       return NextResponse.json({ error: 'Question is required' }, { status: 400 });
@@ -19,14 +19,27 @@ export async function POST(request: NextRequest) {
       length === "medium" ? 500 : 
       800; // long
     
+    // Get language complexity level based on slider value
+    const getComplexityLevel = (value: number) => {
+      if (value < 20) return "like I'm 5 years old";
+      if (value < 40) return "at an elementary school level";
+      if (value < 60) return "at a middle school level";
+      if (value < 80) return "at a high school level";
+      return "at an expert level, assuming I have background knowledge in this area";
+    };
+    
+    const complexityLevel = getComplexityLevel(complexity);
+    
     // Initialize the messages array with the system message
     const messages: ChatCompletionMessageParam[] = [
       {
         role: "system",
-        content: `You are an expert at explaining complex topics in simple terms that a 5-year-old would understand. 
-        Use simple language, metaphors, and examples that children can relate to.
-        Avoid technical jargon and complex concepts unless you explain them through simple analogies.
-        Be friendly, engaging, and make the explanation interesting and fun.
+        content: `You are an expert at explaining complex topics in an accessible way.
+        Adjust your explanation for a ${complexityLevel} understanding.
+        ${complexity < 40 ? 'Use simple language, metaphors, and relatable examples.' : ''}
+        ${complexity >= 40 && complexity < 80 ? 'Use moderately complex language with some technical terms but explain them when first introduced.' : ''}
+        ${complexity >= 80 ? 'Use technical language and advanced concepts, assuming background knowledge in the field.' : ''}
+        Be friendly, engaging, and make the explanation interesting.
         Make your explanation ${length} (${maxTokens} tokens maximum).
 
         IMPORTANT: For key concepts and important words, wrap them in color tags using these colors:
@@ -57,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Add the current question
     messages.push({
       role: "user",
-      content: `${!conversation || conversation.length === 0 ? 'Explain this to me like I\'m 5 years old: ' : ''}${question}`
+      content: `${!conversation || conversation.length === 0 ? `Explain this ${complexityLevel}: ` : ''}${question}`
     });
 
     const response = await openai.chat.completions.create({
