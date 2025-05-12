@@ -12,8 +12,8 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  title: "dumbsplain.help | Explain Like I'm 5",
-  description: "Explain any topic in a way a 5-year-old could understand",
+  title: "dumbsplain.help | Understand anything",
+  description: "Understand any topic at any level of expertise",
   generator: 'Cursor',
   icons: {
     icon: '/favicon.ico',

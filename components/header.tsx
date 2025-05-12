@@ -10,7 +10,7 @@ export function Header() {
             dumbsplain.help
           </h1>
         </div>
-        <p className="ml-4 text-gray-400 text-sm">Explain like I'm 5</p>
+        <p className="ml-4 text-gray-400 text-sm">Understand anything</p>
       </div>
     </header>
   )
