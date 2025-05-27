@@ -1,55 +1,101 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 
 export const LoadingAnimation = () => {
   const [isLoading, setIsLoading] = useState(true)
-  const [isHiding, setIsHiding] = useState(false)
-  
+  const [displayText, setDisplayText] = useState('')
+  const [showCursor, setShowCursor] = useState(true)
+
   useEffect(() => {
-    // Start hiding animation after 2 seconds
-    const timer = setTimeout(() => {
-      setIsHiding(true)
-      
-      // Remove component after animation completes
-      const removeTimer = setTimeout(() => {
-        setIsLoading(false)
-      }, 500) // Match fadeOut animation duration
-      
-      return () => clearTimeout(removeTimer)
-    }, 2000)
-    
-    return () => clearTimeout(timer)
+    // Define the typing sequence with precise timing
+    const sequence = [
+      { text: '', delay: 300 }, // Initial delay
+      { text: 'd', delay: 80 },
+      { text: 'du', delay: 60 },
+      { text: 'dum', delay: 70 },
+      { text: 'dumb', delay: 65 },
+      { text: 'dumbs', delay: 75 },
+      { text: 'dumbsp', delay: 80 },
+      { text: 'dumbspl', delay: 85 },
+      { text: 'dumbspla', delay: 90 },
+      { text: 'dumbsplai', delay: 95 }, // Start typo
+      { text: 'dumbsplain', delay: 100 }, // Typo: "ain" instead of "ai"
+      { text: 'dumbsplaine', delay: 120 }, // Complete typo
+      { text: 'dumbsplaine', delay: 500 }, // Pause - realize mistake
+      { text: 'dumbsplain', delay: 80 }, // Backspace one
+      { text: 'dumbspla', delay: 60 }, // Backspace more
+      { text: 'dumbsplai', delay: 90 }, // Retype correctly
+      { text: 'dumbsplain', delay: 100 },
+      { text: 'dumbsplain.', delay: 150 },
+      { text: 'dumbsplain.h', delay: 80 },
+      { text: 'dumbsplain.he', delay: 70 },
+      { text: 'dumbsplain.hel', delay: 75 },
+      { text: 'dumbsplain.help', delay: 80 },
+      { text: 'dumbsplain.help', delay: 800 }, // Final pause
+    ]
+
+    let currentStep = 0
+    let timeoutId: NodeJS.Timeout
+
+    const executeStep = () => {
+      if (currentStep >= sequence.length) {
+        // Animation complete, fade out
+        setTimeout(() => setIsLoading(false), 200)
+        return
+      }
+
+      const step = sequence[currentStep]
+      setDisplayText(step.text)
+      currentStep++
+
+      timeoutId = setTimeout(executeStep, step.delay)
+    }
+
+    // Start the animation
+    executeStep()
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, []) // Empty dependency array - only run once
+
+  // Smoother cursor blinking
+  useEffect(() => {
+    const cursorInterval = setInterval(() => {
+      setShowCursor(prev => !prev)
+    }, 530) // Slightly different timing for more natural feel
+
+    return () => clearInterval(cursorInterval)
   }, [])
-  
-  if (!isLoading) return null
-  
-  return (
-    <div 
-      className={`fixed inset-0 z-50 flex items-center justify-center animate-gradient ${isHiding ? 'animate-fade-out' : 'animate-fade-in'}`}
-      style={{
-        background: 'linear-gradient(-45deg, #0f172a, #020617, #1e293b, #0f172a)',
-        backgroundSize: '400% 400%',
-      }}
-    >
-      <div className="flex flex-col items-center">
-        <div className="relative animate-spin mb-4">
-          <div className="animate-pulse-slow">
-            <div className="relative z-10">
-              <Image
-                src="/brain-logo.svg"
-                alt="Brain Logo"
-                width={80}
-                height={80}
-                priority
-              />
-            </div>
-            <div className="absolute inset-0 bg-blue-500 blur-xl opacity-30 rounded-full" />
+
+  if (!isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950 animate-fade-out pointer-events-none">
+        <div className="flex flex-col items-center opacity-0">
+          <div className="text-3xl font-bold font-poppins">
+            <span className="bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 text-transparent bg-clip-text animate-gradient bg-[length:200%_auto]">
+              dumbsplain.help
+            </span>
           </div>
+          <p className="text-gray-400 mt-4 text-sm opacity-60">Understand anything</p>
         </div>
-        <h1 className="text-2xl font-bold text-white animate-pulse-slow">dumbsplain.help</h1>
-        <p className="text-gray-400 mt-2">Understand anything</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950 animate-fade-in">
+      <div className="flex flex-col items-center">
+        <div className="text-3xl font-bold font-poppins min-h-[1.2em] flex items-center">
+          <span className="bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 text-transparent bg-clip-text animate-gradient bg-[length:200%_auto]">
+            {displayText}
+          </span>
+          <span 
+            className={`ml-0.5 w-0.5 h-8 bg-blue-400 transition-opacity duration-75 ${showCursor ? 'opacity-100' : 'opacity-0'}`}
+          />
+        </div>
+        <p className="text-gray-400 mt-4 text-sm opacity-60">Understand anything</p>
       </div>
     </div>
   )

@@ -5,7 +5,7 @@ export function Footer() {
     <footer className="w-full border-t border-gray-800 bg-gray-950 py-4">
       <div className="container max-w-4xl mx-auto px-4 flex flex-row items-center justify-center gap-4">
         <div className="text-gray-400 text-sm">
-          made by <Link href="https://www.instagram.com/hepburn_connor/" target="_blank" rel="noopener noreferrer" className="font-medium text-white hover:text-gray-200 transition-colors">connor_hep</Link>
+          made by <Link href="https://www.instagram.com/connor.build/" target="_blank" rel="noopener noreferrer" className="font-medium text-white hover:text-gray-200 transition-colors">connor.build</Link>
         </div>
         <div className="flex items-center space-x-4">
           <Link 

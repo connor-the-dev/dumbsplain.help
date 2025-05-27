@@ -34,7 +34,7 @@ body {
 
 @keyframes fadeOut {
   0% { opacity: 1; }
-  100% { opacity: 0; }
+  100% { opacity: 0; visibility: hidden; }
 }
 
 @keyframes pulse {
@@ -44,11 +44,11 @@ body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-in forwards;
+  animation: fadeIn 0.3s ease-in forwards;
 }
 
 .animate-fade-out {
-  animation: fadeOut 0.5s ease-out forwards;
+  animation: fadeOut 0.4s ease-out forwards;
 }
 
 .animate-pulse-slow {
