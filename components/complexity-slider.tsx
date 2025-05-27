@@ -66,10 +66,11 @@ export function ComplexitySlider({ value, onChange }: ComplexitySliderProps) {
           <motion.div
             className="absolute -top-1 -translate-x-1/2 z-10"
             style={{ left: `${value}%` }}
+            whileHover={{ scale: 1.2 }}
             whileTap={{ scale: 1.1 }}
             transition={{ type: "spring", stiffness: 500, damping: 25 }}
           >
-            <SliderPrimitive.Thumb className="block h-4 w-4 rounded-full border-2 border-white bg-white ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-lg" />
+            <SliderPrimitive.Thumb className="block h-4 w-4 rounded-full border-2 border-white bg-white ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-lg hover:shadow-xl hover:shadow-white/50 cursor-pointer" />
           </motion.div>
         </SliderPrimitive.Root>
       </div>

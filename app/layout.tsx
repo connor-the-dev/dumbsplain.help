@@ -4,6 +4,7 @@ import { Poppins } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Footer } from "@/components/footer"
+import { LoadingAnimation } from "@/components/loading-animation"
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -29,6 +30,7 @@ export default function RootLayout({
     <html lang="en" className="dark" style={{ colorScheme: 'dark' }}>
       <body className={`${poppins.variable} font-poppins`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} forcedTheme="dark">
+          <LoadingAnimation />
           <div className="flex flex-col min-h-screen">
             <div className="flex-1">
               {children}

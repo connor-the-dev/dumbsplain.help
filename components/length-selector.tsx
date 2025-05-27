@@ -22,7 +22,7 @@ export function LengthSelector({ value, onChange }: LengthSelectorProps) {
       <p className="text-sm font-medium text-gray-300">Explanation Length:</p>
       <div className="flex gap-2">
         {options.map((option) => (
-          <button
+          <motion.button
             key={option.value}
             type="button"
             onClick={(e) => {
@@ -30,11 +30,14 @@ export function LengthSelector({ value, onChange }: LengthSelectorProps) {
               onChange(option.value)
             }}
             className={cn(
-              "relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border",
+              "relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 border",
               value === option.value
-                ? "border-transparent text-gray-900"
-                : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300",
+                ? "border-transparent text-gray-900 shadow-lg scale-105"
+                : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300 hover:shadow-md hover:bg-gray-800/50",
             )}
+            whileHover={value !== option.value ? { scale: 1.05, y: -2 } : {}}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
           >
             {value === option.value && (
               <motion.div
@@ -52,7 +55,7 @@ export function LengthSelector({ value, onChange }: LengthSelectorProps) {
               <span>{option.label}</span>
               <span className="text-xs opacity-80">{option.description}</span>
             </span>
-          </button>
+          </motion.button>
         ))}
       </div>
     </div>

@@ -340,14 +340,14 @@ export function ExplanationApp() {
                 onClick={handleRandomTopic}
                 title="Random topic"
                 disabled={isExplaining}
-                className="rounded-xl"
+                className="rounded-xl hover:rotate-180 transition-transform duration-500 hover:border-yellow-500 hover:text-yellow-500"
               >
                 <Dice5 className="h-5 w-5" />
               </Button>
               <Button 
                 type="submit" 
                 disabled={!question.trim() || isExplaining}
-                className="bg-yellow-500 hover:bg-yellow-600 rounded-xl text-gray-900"
+                className="bg-yellow-500 hover:bg-yellow-600 rounded-xl text-gray-900 hover:shadow-2xl hover:shadow-yellow-500/30 hover:scale-110 transition-all duration-300"
               >
                 {isExplaining ? (
                   <div className="flex items-center gap-1">
@@ -455,7 +455,7 @@ export function ExplanationApp() {
                   >
                     <Button
                       onClick={handleGenerateQuiz}
-                      className="bg-red-500 hover:bg-red-600 text-white font-medium rounded-full px-6 py-2"
+                      className="bg-red-500 hover:bg-red-600 text-white font-medium rounded-full px-6 py-2 hover:shadow-lg hover:shadow-red-500/50 button-shimmer"
                       disabled={isGeneratingQuiz}
                     >
                       {isGeneratingQuiz ? "Generating Quiz..." : "Generate a Mini Quiz"}

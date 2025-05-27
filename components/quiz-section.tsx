@@ -256,7 +256,7 @@ export function QuizSection({ topic, questions: propQuestions, onNewQuiz }: Quiz
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               onClick={handleRestartQuiz}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-full px-6 py-2 flex items-center gap-2 justify-center"
+              className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-full px-6 py-2 flex items-center gap-2 justify-center hover:shadow-lg hover:shadow-blue-500/50 button-shimmer"
             >
               <Repeat className="h-4 w-4" />
               <span>Retry This Quiz</span>
@@ -264,7 +264,7 @@ export function QuizSection({ topic, questions: propQuestions, onNewQuiz }: Quiz
 
             <Button
               onClick={handleNewQuiz}
-              className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-full px-6 py-2"
+              className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-full px-6 py-2 hover:shadow-lg hover:shadow-yellow-500/50 button-shimmer"
             >
               Try New Quiz
             </Button>

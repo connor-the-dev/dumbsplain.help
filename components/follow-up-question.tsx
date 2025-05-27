@@ -45,7 +45,7 @@ export function FollowUpQuestion({ onSubmit, isLoading = false }: FollowUpQuesti
           <Button
             type="submit"
             size="icon"
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-8 h-8"
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-8 h-8 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 transition-all duration-200"
             disabled={!followUp.trim() || isLoading}
           >
             <Send className="h-4 w-4" />
