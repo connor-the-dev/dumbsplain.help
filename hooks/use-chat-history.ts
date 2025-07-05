@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 // Define conversation types
 interface Message {
@@ -30,16 +30,67 @@ export interface Chat {
   conversation?: Conversation
 }
 
+const STORAGE_KEY = 'dumbsplain-chat-history'
+
+// Helper functions for localStorage
+const saveToStorage = (chats: Chat[]) => {
+  try {
+    const serializedChats = JSON.stringify(chats, (key, value) => {
+      if (key === 'timestamp' && value instanceof Date) {
+        return value.toISOString()
+      }
+      return value
+    })
+    localStorage.setItem(STORAGE_KEY, serializedChats)
+  } catch (error) {
+    console.error('Failed to save chats to localStorage:', error)
+  }
+}
+
+const loadFromStorage = (): Chat[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored) return []
+    
+    const parsed = JSON.parse(stored)
+    return parsed.map((chat: any) => ({
+      ...chat,
+      timestamp: new Date(chat.timestamp)
+    }))
+  } catch (error) {
+    console.error('Failed to load chats from localStorage:', error)
+    return []
+  }
+}
+
 export function useChatHistory() {
-  const [chats, setChats] = useState<Chat[]>([
-    {
-      id: Date.now().toString(),
-      title: 'New Chat',
-      timestamp: new Date(),
-      isActive: true,
-      conversation: undefined
+  const [chats, setChats] = useState<Chat[]>(() => {
+    // Only load from localStorage on client side
+    if (typeof window !== 'undefined') {
+      const savedChats = loadFromStorage()
+      if (savedChats.length > 0) {
+        return savedChats
+      }
     }
-  ])
+    
+    // Default chat if no saved chats
+    return [
+      {
+        id: Date.now().toString(),
+        title: 'New Chat',
+        timestamp: new Date(),
+        isActive: true,
+        conversation: undefined
+      }
+    ]
+  })
+
+  // Save to localStorage whenever chats change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      saveToStorage(chats)
+    }
+  }, [chats])
 
   const createNewChat = useCallback((title?: string, firstMessage?: string) => {
     const newChat: Chat = {

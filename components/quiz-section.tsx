@@ -157,7 +157,7 @@ export function QuizSection({
     >
       {/* Header - always visible */}
       <div 
-        className={`p-4 ${isCollapsible ? 'cursor-pointer hover:bg-gray-800/50 transition-colors' : ''}`}
+        className={`p-4 ${isCollapsible ? 'cursor-pointer' : ''}`}
         onClick={isCollapsible ? () => setIsCollapsed(!isCollapsed) : undefined}
       >
         <div className="flex items-center justify-between">

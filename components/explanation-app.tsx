@@ -2,17 +2,20 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Dice5, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { LengthSelector } from "@/components/length-selector"
 import { ComplexitySlider } from "@/components/complexity-slider"
 import { ExplanationDisplay } from "@/components/explanation-display"
 import { QuizSection } from "@/components/quiz-section"
 import { generateExplanation, generateQuiz } from "@/lib/openai"
 import type { Chat } from "@/hooks/use-chat-history"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { cn } from "@/lib/utils"
 
 type ExplanationLength = "short" | "medium" | "long"
 
@@ -80,6 +83,10 @@ export function ExplanationApp({
   const [streamingText, setStreamingText] = useState<string>("")
   const [isStreaming, setIsStreaming] = useState<boolean>(false)
   const [streamTarget, setStreamTarget] = useState<string>("")
+
+  // Refs for textareas
+  const mainTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const bottomTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Load conversation when active chat changes
   useEffect(() => {
@@ -186,6 +193,18 @@ export function ExplanationApp({
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [isStreaming, streamTarget, activeChat, onUpdateChatConversation]);
+
+  // Reset textarea height when question is cleared
+  useEffect(() => {
+    if (question === '') {
+      if (mainTextareaRef.current) {
+        mainTextareaRef.current.style.height = 'auto'
+      }
+      if (bottomTextareaRef.current) {
+        bottomTextareaRef.current.style.height = 'auto'
+      }
+    }
+  }, [question])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -303,6 +322,23 @@ export function ExplanationApp({
     setQuestion(randomTopic)
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit(e as any)
+    }
+  }
+
+  const autoResize = useCallback((textarea: HTMLTextAreaElement) => {
+    textarea.style.height = 'auto'
+    textarea.style.height = textarea.scrollHeight + 'px'
+  }, [])
+
+  const handleQuestionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setQuestion(e.target.value)
+    autoResize(e.target)
+  }
+
   const handleGenerateQuiz = async () => {
     if (!conversation || conversation.items.length < 2) return
     
@@ -404,6 +440,8 @@ export function ExplanationApp({
     <span className="inline-block w-0.5 h-5 bg-blue-400 ml-0.5 align-text-bottom animate-pulse"></span>
   );
 
+  const isMobile = useIsMobile()
+
   return (
     <div className="flex flex-col flex-1 relative">
       {/* Main Content Area */}
@@ -427,9 +465,9 @@ export function ExplanationApp({
               >
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Controls Row */}
-                  <div className="flex items-center justify-center gap-6 text-sm">
+                  <div className={cn("flex items-center justify-center text-sm", isMobile ? "gap-3" : "gap-6")}>
                     <LengthSelector value={length} onChange={setLength} compact />
-                    <div className="h-5 w-px bg-gray-700" />
+                    {!isMobile && <div className="h-5 w-px bg-gray-700" />}
                     <ComplexitySlider value={complexity} onChange={setComplexity} compact />
                   </div>
                   
@@ -447,12 +485,20 @@ export function ExplanationApp({
                       <Dice5 className="h-4 w-4" />
                     </Button>
                     
-                    <Input
+                    <Textarea
+                      ref={mainTextareaRef}
                       value={question}
-                      onChange={(e) => setQuestion(e.target.value)}
+                      onChange={handleQuestionChange}
+                      onKeyDown={handleKeyDown}
                       placeholder="Ask any question..."
                       disabled={isExplaining}
-                      className="flex-1 rounded-xl h-12 text-base"
+                      className="flex-1 rounded-xl min-h-12 max-h-32 text-base resize-none overflow-y-auto"
+                      rows={1}
+                      style={{ 
+                        paddingTop: '0.875rem', 
+                        paddingBottom: '0.875rem',
+                        lineHeight: '1.25rem'
+                      }}
                     />
                     
                     <Button 
@@ -599,29 +645,41 @@ export function ExplanationApp({
             className="fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 p-4 shadow-xl"
           >
             <div className="container max-w-4xl mx-auto">
-              <form onSubmit={handleSubmit} className="space-y-3">
+              <form onSubmit={handleSubmit} className={cn("space-y-3", isMobile && "space-y-2")}>
                 {/* Controls Row */}
-                <div className="flex items-center gap-6 text-sm">
+                <div className={cn("flex items-center text-sm", 
+                  isMobile ? "justify-center gap-4 -ml-4" : "gap-6"
+                )}>
                   <LengthSelector value={length} onChange={setLength} compact />
-                  <div className="h-4 w-px bg-gray-700" />
+                  {!isMobile && <div className="h-4 w-px bg-gray-700" />}
                   <ComplexitySlider value={complexity} onChange={setComplexity} compact />
                 </div>
                 
                 {/* Input Row */}
-                <div className="flex gap-3">
-                  <Input
+                <div className={cn("flex", isMobile ? "gap-2" : "gap-3")}>
+                  <Textarea
+                    ref={bottomTextareaRef}
                     value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Ask a follow-up question..."
+                    onChange={handleQuestionChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask a follow up"
                     disabled={isExplaining}
-                    className="flex-1 rounded-xl"
+                    className="flex-1 rounded-xl min-h-10 max-h-32 resize-none overflow-y-auto"
+                    rows={1}
+                    style={{ 
+                      paddingTop: '0.625rem', 
+                      paddingBottom: '0.625rem',
+                      lineHeight: '1.25rem'
+                    }}
                   />
                   
                   <Button 
                     type="submit" 
                     size="icon"
                     disabled={!question.trim() || isExplaining}
-                    className="bg-yellow-500 hover:bg-yellow-600 rounded-xl text-gray-900 hover:shadow-lg hover:shadow-yellow-500/30 hover:scale-110 transition-all duration-300 shrink-0"
+                    className={cn("bg-yellow-500 hover:bg-yellow-600 rounded-xl text-gray-900 hover:shadow-lg hover:shadow-yellow-500/30 hover:scale-110 transition-all duration-300 shrink-0",
+                      isMobile && "w-10 h-10"
+                    )}
                   >
                     {isExplaining ? (
                       <div className="animate-spin">
