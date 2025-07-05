@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input"
 import { LengthSelector } from "@/components/length-selector"
 import { ComplexitySlider } from "@/components/complexity-slider"
 import { ExplanationDisplay } from "@/components/explanation-display"
-import { FollowUpQuestion } from "@/components/follow-up-question"
 import { QuizSection } from "@/components/quiz-section"
 import { generateExplanation, generateQuiz } from "@/lib/openai"
+import type { Chat } from "@/hooks/use-chat-history"
 
 type ExplanationLength = "short" | "medium" | "long"
 
@@ -22,8 +22,17 @@ interface Message {
   content: string;
 }
 
+interface QuizItem {
+  type: 'quiz';
+  topic: string;
+  questions: any[];
+  id: string;
+}
+
+type ConversationItem = Message | QuizItem;
+
 interface Conversation {
-  messages: Message[];
+  items: ConversationItem[];
   topic: string;
 }
 
@@ -40,7 +49,21 @@ const randomTopics = [
   "How does our heart work?",
 ]
 
-export function ExplanationApp() {
+interface ExplanationAppProps {
+  chatHistory?: Chat[]
+  activeChat?: Chat | null
+  onUpdateChatConversation?: (chatId: string, conversation: Conversation) => void
+  onAddMessageToChat?: (chatId: string, message: Message) => void
+  onCreateNewChat?: (title?: string, firstMessage?: string) => string
+}
+
+export function ExplanationApp({ 
+  chatHistory, 
+  activeChat, 
+  onUpdateChatConversation, 
+  onAddMessageToChat,
+  onCreateNewChat 
+}: ExplanationAppProps) {
   const [question, setQuestion] = useState("")
   const [isExplaining, setIsExplaining] = useState(false)
   const [length, setLength] = useState<ExplanationLength>("medium")
@@ -52,130 +75,225 @@ export function ExplanationApp() {
   // Conversation-based state
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [currentTopic, setCurrentTopic] = useState<string>("")
-  
-  // Separate loading state for follow-up questions
-  const [isLoadingFollowUp, setIsLoadingFollowUp] = useState(false)
 
   // Add streaming animation states
   const [streamingText, setStreamingText] = useState<string>("")
   const [isStreaming, setIsStreaming] = useState<boolean>(false)
   const [streamTarget, setStreamTarget] = useState<string>("")
 
-  // Effect for text streaming animation - updated for smooth flow
+  // Load conversation when active chat changes
+  useEffect(() => {
+    if (activeChat?.conversation) {
+      setConversation(activeChat.conversation)
+      setCurrentTopic(activeChat.conversation.topic)
+      setShowQuiz(false)
+      setQuizQuestions([])
+      setIsExplaining(false)
+      setIsStreaming(false)
+    } else if (activeChat && !activeChat.conversation) {
+      // Active chat exists but has no conversation (new chat)
+      setConversation(null)
+      setCurrentTopic("")
+      setShowQuiz(false)
+      setQuizQuestions([])
+      setIsExplaining(false)
+      setIsStreaming(false)
+    }
+  }, [activeChat])
+
+  // Effect for text streaming animation - smooth typing effect
   useEffect(() => {
     if (!isStreaming || !streamTarget) return;
     
-    let i = 0;
-    let lastUpdateTime = Date.now();
-
-    const getRandomDelay = () => {
-      // Occasionally add a longer pause (like a person thinking)
-      if (Math.random() < 0.05) {
-        return Math.floor(Math.random() * 300) + 100; // 100-400ms pause
-      }
-      
-      // Normal typing rate with natural variation
-      return Math.floor(Math.random() * 20) + 10; // 10-30ms
-    };
-
-    const getRandomChunkSize = () => {
-      // Occasionally type a larger chunk (like a burst of typing)
-      if (Math.random() < 0.1) {
-        return Math.floor(Math.random() * 5) + 2; // 2-6 characters
-      }
-      
-      // Normal typing size with variation
-      return Math.floor(Math.random() * 2) + 1; // 1-2 characters
-    };
-
-    const updateText = () => {
-      if (i >= streamTarget.length) {
+    let currentIndex = 0;
+    let timeoutId: NodeJS.Timeout;
+    
+    const streamText = () => {
+      if (currentIndex >= streamTarget.length) {
         setIsStreaming(false);
+        setIsExplaining(false);
+        
+        // Update the conversation with the full content when streaming is complete
+        setConversation(prev => {
+          if (!prev || prev.items.length === 0) return prev;
+          
+          const lastItem = prev.items[prev.items.length - 1];
+          if ('isUser' in lastItem && !lastItem.isUser) {
+            const updatedConversation = {
+              ...prev,
+              items: [
+                ...prev.items.slice(0, -1),
+                { isUser: false, content: streamTarget }
+              ]
+            };
+            
+            // Defer the chat history update to avoid the React warning
+            setTimeout(() => {
+              if (activeChat && onUpdateChatConversation) {
+                onUpdateChatConversation(activeChat.id, updatedConversation);
+              }
+            }, 0);
+            
+            return updatedConversation;
+          }
+          
+          return prev;
+        });
+        
         return;
       }
       
-      const now = Date.now();
-      const elapsed = now - lastUpdateTime;
-      const delay = getRandomDelay();
+      // Calculate next chunk - prefer word boundaries for more natural flow
+      let nextIndex = currentIndex + 1;
       
-      if (elapsed < delay) {
-        requestAnimationFrame(updateText);
-        return;
+      // Look for word boundaries for more natural chunking
+      if (currentIndex > 0 && Math.random() < 0.3) {
+        const remainingText = streamTarget.substring(currentIndex);
+        const nextSpace = remainingText.indexOf(' ');
+        const nextPunctuation = remainingText.search(/[.!?,:;]/);
+        
+        if (nextSpace > 0 && nextSpace < 8) {
+          nextIndex = currentIndex + nextSpace + 1;
+        } else if (nextPunctuation > 0 && nextPunctuation < 12) {
+          nextIndex = currentIndex + nextPunctuation + 1;
+        }
       }
       
-      // Update the text with a random chunk size
-      const chunkSize = getRandomChunkSize();
-      const nextIndex = Math.min(i + chunkSize, streamTarget.length);
+      nextIndex = Math.min(nextIndex, streamTarget.length);
       setStreamingText(streamTarget.substring(0, nextIndex));
-      i = nextIndex;
-      lastUpdateTime = now;
+      currentIndex = nextIndex;
       
-      requestAnimationFrame(updateText);
+      // Variable delay for natural typing rhythm (faster, ChatGPT-like speed)
+      let delay = 12; // Base delay (faster)
+      if (streamTarget[currentIndex - 1] === ' ') {
+        delay = 25; // Pause at spaces
+      } else if (/[.!?]/.test(streamTarget[currentIndex - 1])) {
+        delay = 100; // Longer pause at sentence endings
+      } else if (/[,;:]/.test(streamTarget[currentIndex - 1])) {
+        delay = 50; // Medium pause at punctuation
+      }
+      
+      // Add small random variation
+      delay += Math.random() * 8 - 4;
+      
+      timeoutId = setTimeout(streamText, delay);
     };
     
-    requestAnimationFrame(updateText);
+    // Start streaming after a short delay
+    timeoutId = setTimeout(streamText, 50);
     
     return () => {
-      i = streamTarget.length; // Force exit on cleanup
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [isStreaming, streamTarget]);
+  }, [isStreaming, streamTarget, activeChat, onUpdateChatConversation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!question.trim()) return
 
     setIsExplaining(true)
-    setShowQuiz(false)
-    setQuizQuestions([])
-    
-    // Store the current question for later use
     const currentQuestion = question.trim()
-    setCurrentTopic(currentQuestion)
-
+    
     try {
-      // Create a new conversation with the user's question
-      setConversation({
-        messages: [
-          { isUser: true, content: currentQuestion }
-        ],
-        topic: currentQuestion
-      })
-      
-      // Clear the input field
-      setQuestion("")
-      
-      // Generate the explanation - now passing complexity
-      const explanation = await generateExplanation(currentQuestion, length, undefined, complexity)
-      
-      // Set up streaming animation
-      setStreamTarget(explanation);
-      setStreamingText("");
-      setIsStreaming(true);
-      
-      // Add the assistant's response to the conversation
-      setConversation(prev => {
-        if (!prev) return null
-        return {
-          ...prev,
-          messages: [
-            ...prev.messages,
-            { isUser: false, content: explanation, streaming: true }
+      if (!conversation) {
+        // First question - create new conversation or update current chat
+        setShowQuiz(false)
+        setQuizQuestions([])
+        setCurrentTopic(currentQuestion)
+
+        const newConversation = {
+          items: [
+            { isUser: true, content: currentQuestion }
+          ],
+          topic: currentQuestion
+        }
+        
+        setConversation(newConversation)
+        setQuestion("")
+        
+        // If we have an active chat without conversation, just update it with the conversation
+        // Don't create a new chat - we already have one
+        
+        const explanation = await generateExplanation(currentQuestion, length, undefined, complexity)
+        
+        // Add placeholder message for streaming
+        const placeholderMessage: Message = { isUser: false, content: "" }
+        const updatedConversation = {
+          ...newConversation,
+          items: [
+            ...newConversation.items,
+            placeholderMessage
           ]
         }
-      })
+        
+        setConversation(updatedConversation)
+        
+        // Start streaming animation
+        setStreamTarget(explanation);
+        setStreamingText("");
+        setIsStreaming(true);
+      } else {
+        // Follow-up question - add to existing conversation
+        const userMessage: Message = { isUser: true, content: currentQuestion }
+        
+        const updatedConversation = {
+          ...conversation,
+          items: [
+            ...conversation.items,
+            userMessage
+          ]
+        }
+        setConversation(updatedConversation)
+        setQuestion("")
+        
+        // Generate context from the conversation history
+        const explanation = await generateExplanation(
+          currentQuestion, 
+          length, 
+          conversation.items.filter(item => 'isUser' in item) as Message[],
+          complexity
+        )
+        
+        // Add placeholder message for streaming
+        const placeholderMessage: Message = { isUser: false, content: "" }
+        const conversationWithPlaceholder = {
+          ...updatedConversation,
+          items: [
+            ...updatedConversation.items,
+            placeholderMessage
+          ]
+        }
+        
+        setConversation(conversationWithPlaceholder)
+        
+        // Start streaming animation
+        setStreamTarget(explanation);
+        setStreamingText("");
+        setIsStreaming(true);
+      }
     } catch (error) {
       console.error("Failed to generate explanation:", error)
+      const errorMessage: Message = { isUser: false, content: "Sorry, I couldn't generate an explanation right now. Please try again later." }
+      
       setConversation(prev => {
         if (!prev) return null
-        return {
+        const updatedConversation = {
           ...prev,
-          messages: [
-            ...prev.messages,
-            { isUser: false, content: "Sorry, I couldn't generate an explanation right now. Please try again later." }
+          items: [
+            ...prev.items,
+            errorMessage
           ]
         }
+        
+        // Update the chat history even for errors
+        if (activeChat && onUpdateChatConversation) {
+          onUpdateChatConversation(activeChat.id, updatedConversation)
+        }
+        
+        return updatedConversation
       })
-    } finally {
+      
+      // Only set isExplaining to false on error, streaming will handle it on success
       setIsExplaining(false)
     }
   }
@@ -186,43 +304,73 @@ export function ExplanationApp() {
   }
 
   const handleGenerateQuiz = async () => {
-    if (!conversation || conversation.messages.length < 2) return
+    if (!conversation || conversation.items.length < 2) return
     
     setIsGeneratingQuiz(true)
     
     try {
-      // Extract all AI responses from the conversation for quiz context
-      const aiResponses = conversation.messages
-        .filter(msg => !msg.isUser)
-        .map(msg => msg.content);
-      
-      // Join all AI responses into a single comprehensive explanation
-      const fullExplanation = aiResponses.join("\n\n");
-      
-      // Use the combined explanation for quiz generation
-      const questions = await generateQuiz(currentTopic, fullExplanation);
-      
-      // Check if we received valid questions
-      if (questions && Array.isArray(questions) && questions.length > 0) {
-        setQuizQuestions(questions);
-        setShowQuiz(true);
-      } else {
-        console.error('Received invalid quiz questions:', questions);
-        // Show an error to the user
-        setConversation(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            messages: [
-              ...prev.messages,
-              { 
-                isUser: false, 
-                content: "I couldn't generate a quiz based on our conversation. Could you ask me to explain more about this topic first?" 
-              }
-            ]
-          };
+      // Extract the entire conversation history for quiz context
+      const conversationHistory = conversation.items
+        .filter(item => 'isUser' in item) // Only include user messages and AI responses
+        .map(item => {
+          const message = item as Message;
+          return `${message.isUser ? 'User' : 'AI'}: ${message.content}`;
         });
-      }
+      
+      // Join the entire conversation into comprehensive context
+      // Recent messages have more weight by being at the end
+      const fullConversationContext = conversationHistory.join("\n\n");
+      
+      // Get the latest topic from recent messages, or use the original topic
+      const recentMessages = conversation.items
+        .filter(item => 'isUser' in item && (item as Message).isUser)
+        .slice(-3) // Get last 3 user messages
+        .map(item => (item as Message).content);
+      
+      const quizTopic = recentMessages.length > 0 
+        ? recentMessages[recentMessages.length - 1] // Most recent user message
+        : currentTopic;
+      
+      const questions = await generateQuiz(quizTopic, fullConversationContext)
+      
+      // Add quiz as a separate item in conversation
+      const newQuizItem = { 
+        type: 'quiz' as const,
+        topic: quizTopic,
+        questions,
+        id: Date.now().toString()
+      };
+      
+      setConversation(prev => {
+        if (!prev) return null
+        return {
+          ...prev,
+          items: [
+            ...prev.items,
+            newQuizItem
+          ]
+        }
+      })
+      setQuizQuestions(questions)
+      setShowQuiz(true)
+      
+      // Scroll to the new quiz after a short delay
+      setTimeout(() => {
+        const quizElement = document.getElementById(newQuizItem.id);
+        if (quizElement) {
+          quizElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        } else {
+          // Fallback: scroll to bottom
+          window.scrollTo({
+            top: document.body.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+      
     } catch (error) {
       console.error('Failed to generate quiz:', error);
       // Show an error to the user
@@ -230,8 +378,8 @@ export function ExplanationApp() {
         if (!prev) return null;
         return {
           ...prev,
-          messages: [
-            ...prev.messages,
+          items: [
+            ...prev.items,
             { 
               isUser: false, 
               content: "Sorry, I had trouble creating a quiz. Please try again." 
@@ -244,68 +392,6 @@ export function ExplanationApp() {
     }
   }
   
-  const handleFollowUpSubmit = async (followUpQuestion: string) => {
-    if (!conversation) return
-    
-    // Set loading state specifically for follow-up
-    setIsLoadingFollowUp(true)
-    
-    // Add the follow-up question to the conversation
-    setConversation(prev => {
-      if (!prev) return null
-      return {
-        ...prev,
-        messages: [
-          ...prev.messages,
-          { isUser: true, content: followUpQuestion }
-        ]
-      }
-    })
-    
-    try {
-      // Get the current conversation messages to provide context
-      // We need to create a new array because we just updated the state above
-      // but React hasn't re-rendered yet
-      const currentMessages = conversation.messages.concat([
-        { isUser: true, content: followUpQuestion }
-      ]);
-      
-      // Generate the response to the follow-up question, passing conversation history
-      const response = await generateExplanation(followUpQuestion, length, currentMessages, complexity);
-      
-      // Set up streaming animation
-      setStreamTarget(response);
-      setStreamingText("");
-      setIsStreaming(true);
-      
-      // Add the assistant's response to the conversation
-      setConversation(prev => {
-        if (!prev) return null
-        return {
-          ...prev,
-          messages: [
-            ...prev.messages,
-            { isUser: false, content: response, streaming: true }
-          ]
-        }
-      })
-    } catch (error) {
-      console.error("Failed to generate follow-up explanation:", error)
-      setConversation(prev => {
-        if (!prev) return null
-        return {
-          ...prev,
-          messages: [
-            ...prev.messages,
-            { isUser: false, content: "Sorry, I couldn't generate a response right now. Please try again later." }
-          ]
-        }
-      })
-    } finally {
-      setIsLoadingFollowUp(false)
-    }
-  }
-
   const renderColoredText = (text: string) => {
     return text
       .replace(/<blue>(.*?)<\/blue>/g, '<span class="text-blue-400">$1</span>')
@@ -315,164 +401,239 @@ export function ExplanationApp() {
 
   // Custom cursor component for more realistic text streaming
   const BlinkingCursor = () => (
-    <span className="inline-block w-2 h-4 bg-blue-400 animate-pulse-fast ml-0.5 align-middle"></span>
+    <span className="inline-block w-0.5 h-5 bg-blue-400 ml-0.5 align-text-bottom animate-pulse"></span>
   );
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Input
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask any question..."
-                disabled={isExplaining}
-                className="w-full rounded-xl"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={handleRandomTopic}
-                title="Random topic"
-                disabled={isExplaining}
-                className="rounded-xl hover:rotate-180 transition-transform duration-500 hover:border-yellow-500 hover:text-yellow-500"
-              >
-                <Dice5 className="h-5 w-5" />
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={!question.trim() || isExplaining}
-                className="bg-yellow-500 hover:bg-yellow-600 rounded-xl text-gray-900 hover:shadow-2xl hover:shadow-yellow-500/30 hover:scale-110 transition-all duration-300"
-              >
-                {isExplaining ? (
-                  <div className="flex items-center gap-1">
-                    <span className="animate-pulse">Thinking</span>
-                    <span className="animate-bounce delay-100">.</span>
-                    <span className="animate-bounce delay-200">.</span>
-                    <span className="animate-bounce delay-300">.</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span>Explain</span>
-                    <Send className="h-4 w-4" />
-                  </div>
-                )}
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <LengthSelector value={length} onChange={setLength} />
-            </div>
-            <div className="flex-1">
-              <ComplexitySlider value={complexity} onChange={setComplexity} />
-            </div>
-          </div>
-        </div>
-      </form>
-
-      <AnimatePresence>
-        {(isExplaining || conversation) && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-6"
-          >
-            {/* Conversation-style UI */}
-            {conversation && conversation.messages.map((message, index) => (
+    <div className="flex flex-col flex-1 relative">
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="container max-w-4xl mx-auto px-6 py-8">
+          {!conversation ? (
+            // Initial centered layout
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-12">
+              <div className="text-center space-y-6">
+                <h1 className="text-4xl font-bold text-white">What would you like to understand?</h1>
+              </div>
+              
+              {/* Centered Input Form */}
               <motion.div
-                key={index}
+                key="centered-form"
+                className="w-full max-w-2xl space-y-4"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.3 }}
-                className={`${
-                  message.isUser 
-                    ? "bg-blue-600 text-white ml-auto rounded-tl-xl rounded-bl-xl rounded-tr-xl" 
-                    : "bg-gray-800 text-gray-100 mr-auto rounded-tr-xl rounded-br-xl rounded-tl-xl"
-                } p-4 max-w-[80%] rounded-xl`}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.5 }}
               >
-                <div className="whitespace-pre-wrap">
-                  {message.isUser ? message.content : (
-                    index === conversation.messages.length - 1 && isStreaming && !message.isUser
-                      ? <>
-                          <span dangerouslySetInnerHTML={{ __html: renderColoredText(streamingText) }} />
-                          <BlinkingCursor />
-                        </>
-                      : <span dangerouslySetInnerHTML={{ __html: renderColoredText(message.content) }} />
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Controls Row */}
+                  <div className="flex items-center justify-center gap-6 text-sm">
+                    <LengthSelector value={length} onChange={setLength} compact />
+                    <div className="h-5 w-px bg-gray-700" />
+                    <ComplexitySlider value={complexity} onChange={setComplexity} compact />
+                  </div>
+                  
+                  {/* Input Row */}
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleRandomTopic}
+                      title="Random topic"
+                      disabled={isExplaining}
+                      className="rounded-xl hover:rotate-180 transition-transform duration-500 hover:border-yellow-500 hover:text-yellow-500 shrink-0 h-12 w-12"
+                    >
+                      <Dice5 className="h-4 w-4" />
+                    </Button>
+                    
+                    <Input
+                      value={question}
+                      onChange={(e) => setQuestion(e.target.value)}
+                      placeholder="Ask any question..."
+                      disabled={isExplaining}
+                      className="flex-1 rounded-xl h-12 text-base"
+                    />
+                    
+                    <Button 
+                      type="submit" 
+                      size="icon"
+                      disabled={!question.trim() || isExplaining}
+                      className="bg-yellow-500 hover:bg-yellow-600 rounded-xl text-gray-900 hover:shadow-lg hover:shadow-yellow-500/30 hover:scale-110 transition-all duration-300 shrink-0 h-12 w-12"
+                    >
+                      {isExplaining ? (
+                        <div className="animate-spin">
+                          <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full" />
+                        </div>
+                      ) : (
+                        <Send className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          ) : (
+            // Conversation layout with proper spacing
+            <div className="pb-40">
+              <AnimatePresence>
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="space-y-8"
+                >
+                  {/* Conversation-style UI */}
+                  {conversation.items.map((item, index) => {
+                    if ('type' in item && item.type === 'quiz') {
+                      // Render quiz item
+                      return (
+                        <motion.div
+                          key={item.id}
+                          id={item.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1, duration: 0.3 }}
+                          className="w-full"
+                        >
+                          <QuizSection 
+                            topic={item.topic}
+                            questions={item.questions}
+                            isCollapsible={true}
+                            defaultCollapsed={false}
+                            onNewQuiz={() => {
+                              setShowQuiz(false);
+                              handleGenerateQuiz();
+                            }}
+                          />
+                        </motion.div>
+                      )
+                    } else {
+                      // Render message item
+                      const message = item as Message;
+                      return (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1, duration: 0.3 }}
+                          className={`${
+                            message.isUser 
+                              ? "bg-blue-600 text-white ml-auto rounded-tl-xl rounded-bl-xl rounded-tr-xl" 
+                              : "bg-gray-800 text-gray-100 mr-auto rounded-tr-xl rounded-br-xl rounded-tl-xl"
+                          } p-6 max-w-[80%] rounded-xl shadow-lg`}
+                        >
+                          <div className="whitespace-pre-wrap">
+                            {message.isUser ? message.content : (
+                              index === conversation.items.length - 1 && isStreaming && !message.isUser
+                                ? <>
+                                    <span dangerouslySetInnerHTML={{ __html: renderColoredText(streamingText) }} />
+                                    <BlinkingCursor />
+                                  </>
+                                : <span dangerouslySetInnerHTML={{ __html: renderColoredText(message.content) }} />
+                            )}
+                          </div>
+                        </motion.div>
+                      )
+                    }
+                  })}
+                  
+                  {/* Loading state for initial explanation - only show when thinking, not when streaming */}
+                  {isExplaining && !isStreaming && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-gray-800 text-gray-100 mr-auto p-6 max-w-[80%] rounded-tr-xl rounded-br-xl rounded-tl-xl shadow-lg"
+                    >
+                      <div className="flex space-x-2">
+                        <div className="bg-red-500 rounded-full h-3 w-3 animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <div className="bg-blue-500 rounded-full h-3 w-3 animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <div className="bg-yellow-500 rounded-full h-3 w-3 animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </motion.div>
                   )}
-                  {index === conversation.messages.length - 1 && isStreaming && !message.isUser && (
-                    <span className="animate-pulse">▋</span>
+
+                  {/* Follow-up question and quiz section */}
+                  {!isExplaining && conversation.items.length >= 2 && (
+                    <div className="space-y-8 mt-8">
+                      {!showQuiz ? (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.5 }}
+                          className="flex justify-center"
+                        >
+                          <Button
+                            onClick={handleGenerateQuiz}
+                            className="bg-red-500 hover:bg-red-600 text-white font-medium rounded-full px-8 py-3 hover:shadow-lg hover:shadow-red-500/50 button-shimmer"
+                            disabled={isGeneratingQuiz}
+                          >
+                            {isGeneratingQuiz ? "Generating Quiz..." : "Generate a Mini Quiz"}
+                          </Button>
+                        </motion.div>
+                      ) : null}
+                    </div>
                   )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Input Bar - Only show when conversation exists */}
+      <AnimatePresence>
+        {conversation && (
+          <motion.div
+            key="bottom-form"
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: "100%", opacity: 0 }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 300, 
+              damping: 30,
+              duration: 0.6 
+            }}
+            className="fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 p-4 shadow-xl"
+          >
+            <div className="container max-w-4xl mx-auto">
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {/* Controls Row */}
+                <div className="flex items-center gap-6 text-sm">
+                  <LengthSelector value={length} onChange={setLength} compact />
+                  <div className="h-4 w-px bg-gray-700" />
+                  <ComplexitySlider value={complexity} onChange={setComplexity} compact />
                 </div>
                 
-                {/* Show loading indicator for the latest assistant message if we're loading a follow-up */}
-                {isLoadingFollowUp && index === conversation.messages.length - 1 && !message.isUser && (
-                  <div className="mt-2 flex space-x-1">
-                    <div className="bg-red-500 rounded-full h-2 w-2 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <div className="bg-blue-500 rounded-full h-2 w-2 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <div className="bg-yellow-500 rounded-full h-2 w-2 animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
-                )}
-              </motion.div>
-            ))}
-            
-            {/* Loading state for initial explanation */}
-            {isExplaining && !isLoadingFollowUp && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gray-800 text-gray-100 mr-auto p-4 max-w-[80%] rounded-tr-xl rounded-br-xl rounded-tl-xl"
-              >
-                <div className="flex space-x-2">
-                  <div className="bg-red-500 rounded-full h-3 w-3 animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <div className="bg-blue-500 rounded-full h-3 w-3 animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <div className="bg-yellow-500 rounded-full h-3 w-3 animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              </motion.div>
-            )}
-
-            {/* Follow-up question and quiz section */}
-            {conversation && !isExplaining && conversation.messages.length >= 2 && (
-              <div className="space-y-6 mt-4">
-                <FollowUpQuestion
-                  onSubmit={handleFollowUpSubmit}
-                  isLoading={isLoadingFollowUp}
-                />
-
-                {!showQuiz ? (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    className="flex justify-center"
-                  >
-                    <Button
-                      onClick={handleGenerateQuiz}
-                      className="bg-red-500 hover:bg-red-600 text-white font-medium rounded-full px-6 py-2 hover:shadow-lg hover:shadow-red-500/50 button-shimmer"
-                      disabled={isGeneratingQuiz}
-                    >
-                      {isGeneratingQuiz ? "Generating Quiz..." : "Generate a Mini Quiz"}
-                    </Button>
-                  </motion.div>
-                ) : (
-                  <QuizSection 
-                    topic={currentTopic} 
-                    questions={quizQuestions} 
-                    onNewQuiz={() => {
-                      setShowQuiz(false);
-                      handleGenerateQuiz();
-                    }}
+                {/* Input Row */}
+                <div className="flex gap-3">
+                  <Input
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="Ask a follow-up question..."
+                    disabled={isExplaining}
+                    className="flex-1 rounded-xl"
                   />
-                )}
-              </div>
-            )}
+                  
+                  <Button 
+                    type="submit" 
+                    size="icon"
+                    disabled={!question.trim() || isExplaining}
+                    className="bg-yellow-500 hover:bg-yellow-600 rounded-xl text-gray-900 hover:shadow-lg hover:shadow-yellow-500/30 hover:scale-110 transition-all duration-300 shrink-0"
+                  >
+                    {isExplaining ? (
+                      <div className="animate-spin">
+                        <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full" />
+                      </div>
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

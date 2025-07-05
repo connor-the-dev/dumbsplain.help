@@ -8,14 +8,54 @@ type LengthOption = "short" | "medium" | "long"
 interface LengthSelectorProps {
   value: LengthOption
   onChange: (value: LengthOption) => void
+  compact?: boolean
 }
 
-export function LengthSelector({ value, onChange }: LengthSelectorProps) {
+export function LengthSelector({ value, onChange, compact = false }: LengthSelectorProps) {
   const options: { value: LengthOption; label: string; description: string }[] = [
     { value: "short", label: "Short", description: "100-200 words" },
     { value: "medium", label: "Medium", description: "300-400 words" },
     { value: "long", label: "Long", description: "500-600 words" },
   ]
+
+  if (compact) {
+    return (
+      <div className="flex gap-1">
+        {options.map((option) => (
+          <motion.button
+            key={option.value}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              onChange(option.value)
+            }}
+            className={cn(
+              "relative px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border",
+              value === option.value
+                ? "border-transparent text-gray-900 shadow-md"
+                : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300",
+            )}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          >
+            {value === option.value && (
+              <motion.div
+                layoutId="compactActivePill"
+                className="absolute inset-0 rounded-full"
+                style={{
+                  backgroundColor:
+                    option.value === "short" ? "#EF4444" : option.value === "medium" ? "#3B82F6" : "#EAB308",
+                }}
+                initial={false}
+                transition={{ type: "spring", duration: 0.3 }}
+              />
+            )}
+            <span className="relative z-10">{option.label}</span>
+          </motion.button>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-2">

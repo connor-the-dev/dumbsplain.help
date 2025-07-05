@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, XCircle, Repeat } from "lucide-react"
+import { CheckCircle, XCircle, Repeat, ChevronDown, ChevronUp } from "lucide-react"
 
 interface QuizQuestion {
   question: string
@@ -15,15 +15,24 @@ interface QuizSectionProps {
   topic: string
   questions?: QuizQuestion[]
   onNewQuiz?: () => void
+  isCollapsible?: boolean
+  defaultCollapsed?: boolean
 }
 
-export function QuizSection({ topic, questions: propQuestions, onNewQuiz }: QuizSectionProps) {
+export function QuizSection({ 
+  topic, 
+  questions: propQuestions, 
+  onNewQuiz, 
+  isCollapsible = false,
+  defaultCollapsed = false 
+}: QuizSectionProps) {
   const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [score, setScore] = useState(0)
   const [quizComplete, setQuizComplete] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
 
   useEffect(() => {
     if (propQuestions && propQuestions.length > 0) {
@@ -140,137 +149,155 @@ export function QuizSection({ topic, questions: propQuestions, onNewQuiz }: Quiz
     }
   }
 
-  if (isLoading) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg text-center"
-      >
-        <div className="py-8">
-          <div className="flex justify-center mb-4">
-            <div className="flex space-x-2">
-              {["bg-red-500", "bg-blue-500", "bg-yellow-500"].map((color, i) => (
-                <motion.div
-                  key={i}
-                  className={`w-3 h-3 rounded-full ${color}`}
-                  animate={{
-                    y: [0, -8, 0],
-                  }}
-                  transition={{
-                    duration: 0.6,
-                    repeat: Number.POSITIVE_INFINITY,
-                    delay: i * 0.2,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-          <p className="text-gray-300">Creating your mini quiz...</p>
-        </div>
-      </motion.div>
-    )
-  }
-
-  if (!questions.length) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg text-center"
-      >
-        <p className="text-gray-300">Couldn't generate quiz questions. Please try again.</p>
-      </motion.div>
-    )
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg"
+      className="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden"
     >
-      <h3 className="text-lg font-bold mb-6 text-center text-yellow-400">Mini Quiz Time!</h3>
-
-      {!quizComplete ? (
-        <div>
-          <div className="mb-4 flex justify-between items-center">
-            <span className="text-sm text-gray-400">
-              Question {currentQuestion + 1} of {questions.length}
-            </span>
-            <span className="text-sm text-gray-400">Score: {score}</span>
-          </div>
-
-          <div className="mb-6">
-            <h4 className="text-md font-medium mb-4 text-gray-200">{questions[currentQuestion].question}</h4>
-
-            <div className="space-y-3">
-              {questions[currentQuestion].options.map((option, index) => (
-                <motion.button
-                  key={index}
-                  onClick={() => handleOptionSelect(index)}
-                  className={`w-full text-left p-3 rounded-lg border transition-all ${
-                    selectedOption === null
-                      ? "border-gray-700 hover:border-gray-600 bg-gray-800/50 hover:bg-gray-800"
-                      : selectedOption === index
-                        ? index === questions[currentQuestion].correctAnswer
-                          ? "border-green-500 bg-green-500/20"
-                          : "border-red-500 bg-red-500/20"
-                        : index === questions[currentQuestion].correctAnswer
-                          ? "border-green-500 bg-green-500/20"
-                          : "border-gray-700 bg-gray-800/50 opacity-50"
-                  }`}
-                  disabled={selectedOption !== null}
-                  whileHover={selectedOption === null ? { scale: 1.02 } : {}}
-                  whileTap={selectedOption === null ? { scale: 0.98 } : {}}
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-200">{option}</span>
-                    {selectedOption !== null &&
-                      (index === questions[currentQuestion].correctAnswer ? (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : selectedOption === index ? (
-                        <XCircle className="h-5 w-5 text-red-500" />
-                      ) : null)}
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-6">
-          <h4 className="text-xl font-bold mb-2 text-gray-200">Quiz Complete!</h4>
-          <p className="text-lg mb-6">
-            Your score: <span className="font-bold text-yellow-400">{score}</span> out of {questions.length}
-          </p>
-
-          {score === questions.length ? (
-            <p className="text-green-400 mb-6">Perfect score! You're super smart!</p>
-          ) : score >= questions.length / 2 ? (
-            <p className="text-blue-400 mb-6">Good job! You learned a lot!</p>
-          ) : (
-            <p className="text-red-400 mb-6">Keep learning! You'll get better!</p>
+      {/* Header - always visible */}
+      <div 
+        className={`p-4 ${isCollapsible ? 'cursor-pointer hover:bg-gray-800/50 transition-colors' : ''}`}
+        onClick={isCollapsible ? () => setIsCollapsed(!isCollapsed) : undefined}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-yellow-400">Mini Quiz Time!</h3>
+          {isCollapsible && (
+            <motion.div
+              animate={{ rotate: isCollapsed ? 0 : 180 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronDown className="h-5 w-5 text-gray-400" />
+            </motion.div>
           )}
+        </div>
+        {isCollapsed && quizComplete && (
+          <p className="text-sm text-gray-400 mt-1">
+            Final score: {score} out of {questions.length}
+          </p>
+        )}
+      </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              onClick={handleRestartQuiz}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-full px-6 py-2 flex items-center gap-2 justify-center hover:shadow-lg hover:shadow-blue-500/50 button-shimmer"
-            >
-              <Repeat className="h-4 w-4" />
-              <span>Retry This Quiz</span>
-            </Button>
+      {/* Content - collapsible */}
+      <AnimatePresence>
+        {!isCollapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="px-6 pb-6">
+              {isLoading ? (
+                <div className="py-8 text-center">
+                  <div className="flex justify-center mb-4">
+                    <div className="flex space-x-2">
+                      {["bg-red-500", "bg-blue-500", "bg-yellow-500"].map((color, i) => (
+                        <motion.div
+                          key={i}
+                          className={`w-3 h-3 rounded-full ${color}`}
+                          animate={{
+                            y: [0, -8, 0],
+                          }}
+                          transition={{
+                            duration: 0.6,
+                            repeat: Number.POSITIVE_INFINITY,
+                            delay: i * 0.2,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-gray-300">Creating your mini quiz...</p>
+                </div>
+              ) : !questions.length ? (
+                <div className="py-8 text-center">
+                  <p className="text-gray-300">Couldn't generate quiz questions. Please try again.</p>
+                </div>
+              ) : !quizComplete ? (
+                <div>
+                  <div className="mb-4 flex justify-between items-center">
+                    <span className="text-sm text-gray-400">
+                      Question {currentQuestion + 1} of {questions.length}
+                    </span>
+                    <span className="text-sm text-gray-400">Score: {score}</span>
+                  </div>
 
-            <Button
-              onClick={handleNewQuiz}
-              className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-full px-6 py-2 hover:shadow-lg hover:shadow-yellow-500/50 button-shimmer"
-            >
-              Try New Quiz
-            </Button>
-          </div>
-        </motion.div>
-      )}
+                  <div className="mb-6">
+                    <h4 className="text-md font-medium mb-4 text-gray-200">{questions[currentQuestion].question}</h4>
+
+                    <div className="space-y-3">
+                      {questions[currentQuestion].options.map((option, index) => (
+                        <motion.button
+                          key={index}
+                          onClick={() => handleOptionSelect(index)}
+                          className={`w-full text-left p-3 rounded-xl border transition-all ${
+                            selectedOption === null
+                              ? "border-gray-700 hover:border-gray-600 bg-gray-800/50 hover:bg-gray-800"
+                              : selectedOption === index
+                                ? index === questions[currentQuestion].correctAnswer
+                                  ? "border-green-500 bg-green-500/20"
+                                  : "border-red-500 bg-red-500/20"
+                                : index === questions[currentQuestion].correctAnswer
+                                  ? "border-green-500 bg-green-500/20"
+                                  : "border-gray-700 bg-gray-800/50 opacity-50"
+                          }`}
+                          disabled={selectedOption !== null}
+                          whileHover={selectedOption === null ? { scale: 1.02 } : {}}
+                          whileTap={selectedOption === null ? { scale: 0.98 } : {}}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-200">{option}</span>
+                            {selectedOption !== null &&
+                              (index === questions[currentQuestion].correctAnswer ? (
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                              ) : selectedOption === index ? (
+                                <XCircle className="h-5 w-5 text-red-500" />
+                              ) : null)}
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-6">
+                  <h4 className="text-xl font-bold mb-2 text-gray-200">Quiz Complete!</h4>
+                  <p className="text-lg mb-6">
+                    Your score: <span className="font-bold text-yellow-400">{score}</span> out of {questions.length}
+                  </p>
+
+                  {score === questions.length ? (
+                    <p className="text-green-400 mb-6">Perfect score! You're super smart!</p>
+                  ) : score >= questions.length / 2 ? (
+                    <p className="text-blue-400 mb-6">Good job! You learned a lot!</p>
+                  ) : (
+                    <p className="text-red-400 mb-6">Keep learning! You'll get better!</p>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <Button
+                      onClick={handleRestartQuiz}
+                      className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-full px-6 py-2 flex items-center gap-2 justify-center hover:shadow-lg hover:shadow-blue-500/50 button-shimmer"
+                    >
+                      <Repeat className="h-4 w-4" />
+                      <span>Retry This Quiz</span>
+                    </Button>
+
+                    <Button
+                      onClick={handleNewQuiz}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium rounded-full px-6 py-2 hover:shadow-lg hover:shadow-yellow-500/50 button-shimmer"
+                    >
+                      Try New Quiz
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

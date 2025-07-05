@@ -6,6 +6,7 @@ export const LoadingAnimation = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [displayText, setDisplayText] = useState('')
   const [showCursor, setShowCursor] = useState(true)
+  const [shouldRender, setShouldRender] = useState(true)
 
   useEffect(() => {
     // Define the typing sequence with precise timing
@@ -40,8 +41,10 @@ export const LoadingAnimation = () => {
 
     const executeStep = () => {
       if (currentStep >= sequence.length) {
-        // Animation complete, fade out
-        setTimeout(() => setIsLoading(false), 200)
+        // Animation complete, start fade out
+        setIsLoading(false)
+        // Remove component completely after fade animation
+        setTimeout(() => setShouldRender(false), 500)
         return
       }
 
@@ -58,7 +61,7 @@ export const LoadingAnimation = () => {
     return () => {
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, []) // Empty dependency array - only run once
+  }, [])
 
   // Smoother cursor blinking
   useEffect(() => {
@@ -69,23 +72,17 @@ export const LoadingAnimation = () => {
     return () => clearInterval(cursorInterval)
   }, [])
 
-  if (!isLoading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950 animate-fade-out pointer-events-none">
-        <div className="flex flex-col items-center opacity-0">
-          <div className="text-3xl font-bold font-poppins">
-            <span className="bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 text-transparent bg-clip-text animate-gradient bg-[length:200%_auto]">
-              dumbsplain.help
-            </span>
-          </div>
-          <p className="text-gray-400 mt-4 text-sm opacity-60">Understand anything</p>
-        </div>
-      </div>
-    )
+  if (!shouldRender) {
+    return null
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950 animate-fade-in">
+    <div 
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-gray-950 transition-opacity duration-500 ${
+        isLoading ? 'opacity-100' : 'opacity-0'
+      }`}
+      style={{ pointerEvents: isLoading ? 'auto' : 'none' }}
+    >
       <div className="flex flex-col items-center">
         <div className="text-3xl font-bold font-poppins min-h-[1.2em] flex items-center">
           <span className="bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 text-transparent bg-clip-text animate-gradient bg-[length:200%_auto]">

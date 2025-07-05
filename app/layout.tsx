@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { Poppins } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Footer } from "@/components/footer"
 import { LoadingAnimation } from "@/components/loading-animation"
 
 const poppins = Poppins({
@@ -32,10 +31,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} forcedTheme="dark">
           <LoadingAnimation />
           <div className="flex flex-col min-h-screen">
-            <div className="flex-1">
-              {children}
-            </div>
-            <Footer />
+            {children}
           </div>
         </ThemeProvider>
       </body>

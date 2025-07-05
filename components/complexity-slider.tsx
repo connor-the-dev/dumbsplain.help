@@ -8,9 +8,10 @@ import { motion } from "framer-motion"
 interface ComplexitySliderProps {
   value: number
   onChange: (value: number) => void
+  compact?: boolean
 }
 
-export function ComplexitySlider({ value, onChange }: ComplexitySliderProps) {
+export function ComplexitySlider({ value, onChange, compact = false }: ComplexitySliderProps) {
   const handleChange = (newValue: number[]) => {
     onChange(newValue[0])
   }
@@ -20,7 +21,33 @@ export function ComplexitySlider({ value, onChange }: ComplexitySliderProps) {
     if (value < 40) return "Elementary"
     if (value < 60) return "Middle School"
     if (value < 80) return "High School"
-    return "Expert"
+    return "Expert Level"
+  }
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="text-xs text-gray-400 whitespace-nowrap">Complexity:</span>
+        <div className="relative flex-1 min-w-32">
+          <SliderPrimitive.Root
+            className="relative flex w-full touch-none select-none items-center h-4"
+            defaultValue={[value]}
+            value={[value]}
+            max={100}
+            step={1}
+            onValueChange={handleChange}
+          >
+            <SliderPrimitive.Track className="relative h-1.5 w-full grow rounded-full overflow-hidden bg-gradient-to-r from-red-400 via-yellow-400 to-blue-400">
+              <SliderPrimitive.Range className="absolute h-full bg-transparent" />
+            </SliderPrimitive.Track>
+            <SliderPrimitive.Thumb className="block h-3 w-3 rounded-full border-2 border-white bg-white ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-lg hover:shadow-xl hover:scale-110 active:scale-105 cursor-pointer" />
+          </SliderPrimitive.Root>
+        </div>
+        <span className="text-xs text-gray-400 whitespace-nowrap w-20 text-right">
+          {getComplexityLabel(value)}
+        </span>
+      </div>
+    )
   }
 
   return (
@@ -46,12 +73,6 @@ export function ComplexitySlider({ value, onChange }: ComplexitySliderProps) {
         </motion.span>
       </div>
       <div className="relative pt-1">
-        <div 
-          className="absolute w-full h-2 rounded-xl overflow-hidden" 
-          style={{
-            background: 'linear-gradient(to right, #EF4444, #EAB308, #3B82F6)'
-          }}
-        />
         <SliderPrimitive.Root
           className="relative flex w-full touch-none select-none items-center h-5"
           defaultValue={[value]}
@@ -60,18 +81,10 @@ export function ComplexitySlider({ value, onChange }: ComplexitySliderProps) {
           step={1}
           onValueChange={handleChange}
         >
-          <SliderPrimitive.Track className="relative h-2 w-full grow rounded-xl bg-transparent">
+          <SliderPrimitive.Track className="relative h-2 w-full grow rounded-xl overflow-hidden bg-gradient-to-r from-red-400 via-yellow-400 to-blue-400">
             <SliderPrimitive.Range className="absolute h-full bg-transparent" />
           </SliderPrimitive.Track>
-          <motion.div
-            className="absolute -top-1 -translate-x-1/2 z-10"
-            style={{ left: `${value}%` }}
-            whileHover={{ scale: 1.2 }}
-            whileTap={{ scale: 1.1 }}
-            transition={{ type: "spring", stiffness: 500, damping: 25 }}
-          >
-            <SliderPrimitive.Thumb className="block h-4 w-4 rounded-full border-2 border-white bg-white ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-lg hover:shadow-xl hover:shadow-white/50 cursor-pointer" />
-          </motion.div>
+          <SliderPrimitive.Thumb className="block h-4 w-4 rounded-full border-2 border-white bg-white ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-lg hover:shadow-xl hover:scale-110 active:scale-105 cursor-pointer" />
         </SliderPrimitive.Root>
       </div>
       <div className="flex justify-between text-xs text-gray-400 px-1">

@@ -33,19 +33,26 @@ export async function POST(request: NextRequest) {
         {
           role: "system",
           content: `You are an educational quiz creator specializing in creating quizzes for children.
-          Create 3 multiple-choice questions based STRICTLY on the provided explanation.
+          Create 3 multiple-choice questions based STRICTLY on the provided content.
           Each question should have 4 options with only one correct answer.
-          Make the questions fun, engaging, and DIRECTLY related to the SPECIFIC content in the explanation.
-          DO NOT invent information not present in the explanation.
-          Questions should test understanding of key concepts that are explicitly mentioned in the explanation.
+          Make the questions fun, engaging, and DIRECTLY related to the SPECIFIC content provided.
+          DO NOT invent information not present in the content.
+          
+          If the content contains a conversation history, prioritize creating questions about:
+          1. The most recent topics discussed (these are more important)
+          2. Key concepts that connect multiple parts of the conversation
+          3. Important details that were explained throughout the discussion
+          
+          Questions should test understanding of key concepts that are explicitly mentioned in the content.
           IMPORTANTLY: Make sure the correct answers are randomly distributed - don't always make "A" the correct answer.
           Structure your response as a JSON array within a "questions" property.`
         },
         {
           role: "user",
-          content: `Topic: ${topic}\n\nExplanation: ${explanation}\n\nCreate 3 simple multiple-choice questions based ONLY on information in this explanation. 
+          content: `Topic: ${topic}\n\nContent: ${explanation}\n\nCreate 3 simple multiple-choice questions based ONLY on information in this content. 
           
-          The questions should test understanding of the main concepts that are explicitly stated in the text.
+          The content may include a conversation history with multiple exchanges. Focus on the most recent topics and key concepts that were discussed.
+          The questions should test understanding of the main concepts that are explicitly stated in the content.
           
           Return your response as a JSON object with the following structure: 
           {
