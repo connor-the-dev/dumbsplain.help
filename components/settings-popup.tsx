@@ -18,7 +18,7 @@ interface SettingsPopupProps {
 export function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
   const [activeTab, setActiveTab] = useState("account")
   const { user, signOut } = useAuth()
-  const { settings, updateTheme, updateComplexityLevel, updateDefaultLength, updateNotifications } = useUserSettings()
+  const { settings, updateDefaultLength, updateNotifications } = useUserSettings()
   const { toast } = useToast()
 
   const handleLogout = async () => {
@@ -146,21 +146,21 @@ export function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
                     className="space-y-6"
                   >
                     <div className="p-4 bg-gray-800/50 rounded-xl">
-                      <h3 className="text-white font-medium mb-4">Appearance & Behavior</h3>
+                      <h3 className="text-white font-medium mb-4">Default Length</h3>
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-gray-200">Theme</p>
-                            <p className="text-sm text-gray-400">Choose your preferred theme</p>
+                            <p className="text-gray-200">Response Length</p>
+                            <p className="text-sm text-gray-400">Choose default length for explanations</p>
                           </div>
                           <select 
-                            value={settings.theme} 
-                            onChange={(e) => updateTheme(e.target.value as 'light' | 'dark' | 'system')}
-                            className="p-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                            value={settings.default_length} 
+                            onChange={(e) => updateDefaultLength(e.target.value as 'short' | 'medium' | 'long')}
+                            className="p-2 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm"
                           >
-                            <option value="light">Light</option>
-                            <option value="dark">Dark</option>
-                            <option value="system">System</option>
+                            <option value="short">Short</option>
+                            <option value="medium">Medium</option>
+                            <option value="long">Long</option>
                           </select>
                         </div>
                         
@@ -174,38 +174,7 @@ export function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
                             onCheckedChange={(checked) => updateNotifications(checked)}
                           />
                         </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-gray-200">Complexity Level</p>
-                            <p className="text-sm text-gray-400">How detailed should explanations be?</p>
-                          </div>
-                          <select 
-                            value={settings.complexity_level} 
-                            onChange={(e) => updateComplexityLevel(parseInt(e.target.value))}
-                            className="p-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
-                          >
-                            <option value={1}>Very Simple</option>
-                            <option value={2}>Simple</option>
-                            <option value={3}>Moderate</option>
-                            <option value={4}>Detailed</option>
-                            <option value={5}>Very Detailed</option>
-                          </select>
-                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="p-4 bg-gray-800/50 rounded-xl">
-                      <h3 className="text-white font-medium mb-4">Default Length</h3>
-                      <select 
-                        value={settings.default_length} 
-                        onChange={(e) => updateDefaultLength(e.target.value as 'short' | 'medium' | 'long')}
-                        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-xl text-white"
-                      >
-                        <option value="short">Short</option>
-                        <option value="medium">Medium</option>
-                        <option value="long">Long</option>
-                      </select>
                     </div>
                   </motion.div>
                 )}
@@ -227,7 +196,7 @@ export function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
                           </div>
                           <Button 
                             size="sm"
-                            className="bg-blue-600 hover:bg-blue-700"
+                            className="bg-blue-600 hover:bg-blue-700 rounded-xl hover:shadow-lg hover:shadow-blue-500/50 button-shimmer"
                           >
                             Change
                           </Button>
@@ -238,13 +207,11 @@ export function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
                             <p className="text-gray-200">Email</p>
                             <p className="text-sm text-gray-400">Update your email address</p>
                           </div>
-                          <Button 
-                            size="sm"
-                            variant="outline"
-                            className="border-gray-600 text-gray-300"
-                          >
-                            Update
-                          </Button>
+                          <div className="relative p-[2px] bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 rounded-xl animate-gradient bg-[length:200%_auto]">
+                            <button className="bg-slate-800 hover:bg-slate-700 text-white border-0 font-medium rounded-[10px] px-4 py-2 flex items-center justify-center transition-colors duration-200 text-sm">
+                              Update
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -257,13 +224,11 @@ export function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
                             <p className="text-gray-200">Export Data</p>
                             <p className="text-sm text-gray-400">Download your chat history</p>
                           </div>
-                          <Button 
-                            size="sm"
-                            variant="outline"
-                            className="border-gray-600 text-gray-300"
-                          >
-                            Export
-                          </Button>
+                          <div className="relative p-[2px] bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 rounded-xl animate-gradient bg-[length:200%_auto]">
+                            <button className="bg-slate-800 hover:bg-slate-700 text-white border-0 font-medium rounded-[10px] px-4 py-2 flex items-center justify-center transition-colors duration-200 text-sm">
+                              Export
+                            </button>
+                          </div>
                         </div>
                         
                         <div className="flex items-center justify-between">
@@ -274,7 +239,7 @@ export function SettingsPopup({ isOpen, onClose }: SettingsPopupProps) {
                           <Button 
                             size="sm"
                             variant="destructive"
-                            className="bg-red-600 hover:bg-red-700"
+                            className="bg-red-600 hover:bg-red-700 rounded-xl"
                           >
                             Delete
                           </Button>

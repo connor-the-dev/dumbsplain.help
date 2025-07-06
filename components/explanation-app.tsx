@@ -484,6 +484,15 @@ export function ExplanationApp({
   const handleRandomTopic = () => {
     const randomTopic = randomTopics[Math.floor(Math.random() * randomTopics.length)]
     setQuestion(randomTopic)
+    
+    // Add spin animation to dice button
+    const diceButton = document.querySelector('[title="Random topic"]')
+    if (diceButton) {
+      diceButton.classList.add('animate-spin')
+      setTimeout(() => {
+        diceButton.classList.remove('animate-spin')
+      }, 500)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

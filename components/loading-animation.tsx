@@ -92,7 +92,7 @@ export const LoadingAnimation = () => {
             className={`ml-0.5 w-0.5 h-8 bg-blue-400 transition-opacity duration-75 ${showCursor ? 'opacity-100' : 'opacity-0'}`}
           />
         </div>
-        <p className="text-gray-400 mt-4 text-sm opacity-60">Understand anything</p>
+        <p className="text-gray-300 mt-4 text-sm font-semibold bg-gradient-to-r from-white via-gray-300 to-white bg-[length:200%_auto] text-transparent bg-clip-text animate-gradient">Understand everything</p>
       </div>
     </div>
   )

@@ -3,6 +3,8 @@
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Crown, Zap, Sparkles, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { useState } from "react"
 
 interface UpgradePlanProps {
   isOpen: boolean
@@ -10,6 +12,9 @@ interface UpgradePlanProps {
 }
 
 export function UpgradePlan({ isOpen, onClose }: UpgradePlanProps) {
+  const isMobile = useIsMobile()
+  const [selectedPlan, setSelectedPlan] = useState("curious") // Default to most popular
+
   const plans = [
     {
       id: "free",
@@ -72,6 +77,73 @@ export function UpgradePlan({ isOpen, onClose }: UpgradePlanProps) {
     console.log(`Upgrading to ${planId} plan`)
   }
 
+  const PlanCard = ({ plan, index }: { plan: typeof plans[0], index: number }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+      className={`relative p-6 rounded-xl border transition-all duration-300 hover:shadow-lg flex flex-col ${
+        plan.popular
+          ? "border-blue-500 bg-blue-500/5 hover:shadow-blue-500/20"
+          : "border-gray-700 bg-gray-800/50 hover:border-gray-600"
+      }`}
+    >
+      {plan.popular && (
+        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+            Most Popular
+          </div>
+        </div>
+      )}
+
+      {/* Plan Icon */}
+      <div className="mb-4">
+        <plan.icon className={`w-12 h-12 ${plan.iconColor}`} />
+      </div>
+
+      {/* Plan Details */}
+      <div className="mb-4">
+        <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
+        <p className="text-gray-400 text-sm mb-3">{plan.description}</p>
+        <div className="flex items-baseline gap-1">
+          <span className="text-3xl font-bold text-white">{plan.price}</span>
+          <span className="text-gray-400 text-sm">/{plan.period}</span>
+        </div>
+      </div>
+
+      {/* Features */}
+      <div className="space-y-3 mb-6 flex-1">
+        {plan.features.map((feature, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+            <span className="text-gray-300 text-sm">{feature}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Upgrade Button */}
+      <div className="mt-auto">
+        {plan.id === "free" ? (
+          <Button
+            disabled
+            className="w-full bg-gray-700 text-gray-400 cursor-not-allowed font-medium rounded-xl py-3"
+          >
+            Current Plan
+          </Button>
+        ) : (
+          <div className="relative p-[2px] bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 rounded-xl animate-gradient bg-[length:200%_auto]">
+            <button
+              onClick={() => handleUpgrade(plan.id)}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-white border-0 font-medium rounded-[10px] px-4 py-3 transition-colors duration-200"
+            >
+              Upgrade to {plan.name}
+            </button>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -81,7 +153,7 @@ export function UpgradePlan({ isOpen, onClose }: UpgradePlanProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={onClose}
           >
             {/* Modal */}
@@ -90,7 +162,9 @@ export function UpgradePlan({ isOpen, onClose }: UpgradePlanProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ duration: 0.3 }}
-              className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-4xl shadow-2xl my-8"
+              className={`bg-gray-900 border border-gray-700 rounded-xl p-6 w-full shadow-2xl my-8 ${
+                isMobile ? "max-w-sm" : "max-w-4xl"
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -104,82 +178,52 @@ export function UpgradePlan({ isOpen, onClose }: UpgradePlanProps) {
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-800"
+                  className="p-1 text-gray-400 hover:text-white transition-colors rounded-xl hover:bg-gray-800"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Plans Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {plans.map((plan, index) => (
-                  <motion.div
-                    key={plan.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className={`relative p-6 rounded-xl border transition-all duration-300 hover:shadow-lg flex flex-col ${
-                      plan.popular
-                        ? "border-blue-500 bg-blue-500/5 hover:shadow-blue-500/20"
-                        : "border-gray-700 bg-gray-800/50 hover:border-gray-600"
-                    }`}
-                  >
-                    {plan.popular && (
-                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                          Most Popular
-                        </div>
-                      </div>
-                    )}
+              {isMobile ? (
+                <>
+                  {/* Mobile Tab Navigation */}
+                  <div className="flex gap-1 mb-6 bg-gray-800 p-1 rounded-xl">
+                    {plans.map((plan) => (
+                      <button
+                        key={plan.id}
+                        onClick={() => setSelectedPlan(plan.id)}
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl font-medium transition-all duration-200 ${
+                          selectedPlan === plan.id
+                            ? "bg-gray-700 text-white shadow-lg"
+                            : "text-gray-400 hover:text-white hover:bg-gray-700/50"
+                        }`}
+                      >
+                        <plan.icon className={`w-4 h-4 ${plan.iconColor}`} />
+                        <span className="text-sm">{plan.name}</span>
+                        {plan.popular && (
+                          <div className="w-2 h-2 bg-blue-400 rounded-full" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
 
-                    {/* Plan Icon */}
-                    <div className="mb-4">
-                      <plan.icon className={`w-12 h-12 ${plan.iconColor}`} />
-                    </div>
-
-                    {/* Plan Details */}
-                    <div className="mb-4">
-                      <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
-                      <p className="text-gray-400 text-sm mb-3">{plan.description}</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-bold text-white">{plan.price}</span>
-                        <span className="text-gray-400 text-sm">/{plan.period}</span>
-                      </div>
-                    </div>
-
-                    {/* Features */}
-                    <div className="space-y-3 mb-6 flex-1">
-                      {plan.features.map((feature, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
-                          <span className="text-gray-300 text-sm">{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Upgrade Button */}
-                    <div className="mt-auto">
-                      {plan.id === "free" ? (
-                        <Button
-                          disabled
-                          className="w-full bg-gray-700 text-gray-400 cursor-not-allowed font-medium rounded-xl py-3"
-                        >
-                          Current Plan
-                        </Button>
-                      ) : (
-                        <div className="relative p-[2px] bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 rounded-xl animate-gradient bg-[length:200%_auto]">
-                          <button
-                            onClick={() => handleUpgrade(plan.id)}
-                            className="w-full bg-slate-800 hover:bg-slate-700 text-white border-0 font-medium rounded-[10px] px-4 py-3 transition-colors duration-200"
-                          >
-                            Upgrade to {plan.name}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                  {/* Mobile Single Plan Display */}
+                  <div className="space-y-4">
+                    {plans.map((plan, index) => (
+                      selectedPlan === plan.id && (
+                        <PlanCard key={plan.id} plan={plan} index={0} />
+                      )
+                    ))}
+                  </div>
+                </>
+              ) : (
+                /* Desktop Grid */
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {plans.map((plan, index) => (
+                    <PlanCard key={plan.id} plan={plan} index={index} />
+                  ))}
+                </div>
+              )}
 
               {/* Footer */}
               <div className="mt-8 pt-6 border-t border-gray-700">

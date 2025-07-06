@@ -71,7 +71,7 @@ export function Header({ onSidebarToggle }: HeaderProps) {
               {isMobile ? "dumbsplain" : "dumbsplain.help"}
             </h1>
             {!isMobile && (
-              <p className="ml-4 text-gray-400 text-sm bg-gradient-to-r from-white via-gray-300 to-white bg-[length:200%_auto] text-transparent bg-clip-text animate-gradient">
+              <p className="ml-4 text-gray-300 text-sm font-semibold bg-gradient-to-r from-white via-gray-300 to-white bg-[length:200%_auto] text-transparent bg-clip-text animate-gradient">
                 Understand everything
               </p>
             )}

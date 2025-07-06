@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { X, Send, MessageSquare } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { useAuth } from "@/lib/auth-context"
 
 interface FeedbackPopupProps {
   isOpen: boolean
@@ -12,6 +13,7 @@ interface FeedbackPopupProps {
 }
 
 export function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
+  const { user } = useAuth()
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -24,17 +26,39 @@ export function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
     e.preventDefault()
     setIsSubmitting(true)
     
-    // TODO: Connect to Formspree later
-    // For now, simulate submission
-    setTimeout(() => {
+    try {
+      // Prepare form data for Formspree
+      const submitData = {
+        name: user?.user_metadata?.full_name || user?.user_metadata?.name || formData.name,
+        email: user?.email || formData.email,
+        feedback: formData.feedback,
+        _subject: "New Feedback from dumbsplain.help"
+      }
+
+      const response = await fetch("https://formspree.io/f/xjkrdlpz", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(submitData),
+      })
+
+      if (response.ok) {
+        setSubmitted(true)
+        setTimeout(() => {
+          onClose()
+          setSubmitted(false)
+          setFormData({ name: "", email: "", feedback: "" })
+        }, 2000)
+      } else {
+        throw new Error("Failed to submit feedback")
+      }
+    } catch (error) {
+      console.error("Error submitting feedback:", error)
+      alert("Failed to submit feedback. Please try again.")
+    } finally {
       setIsSubmitting(false)
-      setSubmitted(true)
-      setTimeout(() => {
-        onClose()
-        setSubmitted(false)
-        setFormData({ name: "", email: "", feedback: "" })
-      }, 2000)
-    }, 1000)
+    }
   }
 
   const handleInputChange = (field: string, value: string) => {
@@ -80,31 +104,49 @@ export function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
 
                   {/* Form */}
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Name (Optional)
-                      </label>
-                      <Input
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) => handleInputChange("name", e.target.value)}
-                        placeholder="Your name"
-                        className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 rounded-xl"
-                      />
-                    </div>
+                    {/* Only show name and email fields if user is not logged in */}
+                    {!user && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Name *
+                          </label>
+                          <Input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => handleInputChange("name", e.target.value)}
+                            placeholder="Your name"
+                            className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 rounded-xl"
+                            required
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Email (Optional)
-                      </label>
-                      <Input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange("email", e.target.value)}
-                        placeholder="your@email.com"
-                        className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 rounded-xl"
-                      />
-                    </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Email *
+                          </label>
+                          <Input
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => handleInputChange("email", e.target.value)}
+                            placeholder="your@email.com"
+                            className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 rounded-xl"
+                            required
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Show user info if logged in */}
+                    {user && (
+                      <div className="p-3 bg-gray-800/50 rounded-xl border border-gray-700">
+                        <p className="text-sm text-gray-400 mb-1">Sending feedback as:</p>
+                        <p className="text-white font-medium">
+                          {user.user_metadata?.full_name || user.user_metadata?.name || 'User'}
+                        </p>
+                        <p className="text-gray-300 text-sm">{user.email}</p>
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -121,7 +163,9 @@ export function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
 
                     {/* Send Feedback Button - styled exactly like upgrade button */}
                     <div className="mt-auto">
-                      {formData.feedback.trim() && !isSubmitting ? (
+                      {formData.feedback.trim() && 
+                       (user || (formData.name.trim() && formData.email.trim())) && 
+                       !isSubmitting ? (
                         <div className="relative p-[2px] bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 rounded-xl animate-gradient bg-[length:200%_auto]">
                           <button
                             type="submit"
