@@ -8,6 +8,14 @@
 
 body {
   @apply bg-gray-950 text-gray-50 font-poppins;
+  /* Hide scrollbar for webkit browsers */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Hide scrollbar for webkit browsers */
+body::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes gradient {

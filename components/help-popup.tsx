@@ -54,7 +54,7 @@ export function HelpPopup({ isOpen, onClose }: HelpPopupProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
             onClick={onClose}
           >
             {/* Modal */}
@@ -63,7 +63,7 @@ export function HelpPopup({ isOpen, onClose }: HelpPopupProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ duration: 0.3 }}
-              className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-3xl shadow-2xl"
+              className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-3xl shadow-2xl my-8"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
