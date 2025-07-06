@@ -9,7 +9,8 @@ export async function generateExplanation(
   question: string, 
   length: string, 
   conversationHistory?: Message[],
-  complexity?: number
+  complexity?: number,
+  abortController?: AbortController
 ): Promise<string> {
   try {
     const response = await fetch('/api/generate-explanation', {
@@ -23,6 +24,7 @@ export async function generateExplanation(
         complexity: complexity !== undefined ? complexity : 0, // Default to 0 if not provided
         conversation: conversationHistory 
       }),
+      signal: abortController?.signal
     });
 
     if (!response.ok) {
@@ -33,12 +35,15 @@ export async function generateExplanation(
     const data = await response.json();
     return data.explanation || "I couldn't generate an explanation.";
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request was cancelled');
+    }
     console.error('Error generating explanation:', error);
     return "Sorry, I ran into a problem generating your explanation. Please try again later!";
   }
 }
 
-export async function generateQuiz(topic: string, explanation: string): Promise<any> {
+export async function generateQuiz(topic: string, explanation: string, abortController?: AbortController): Promise<any> {
   try {
     const response = await fetch('/api/generate-quiz', {
       method: 'POST',
@@ -46,6 +51,7 @@ export async function generateQuiz(topic: string, explanation: string): Promise<
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ topic, explanation }),
+      signal: abortController?.signal
     });
 
     if (!response.ok) {
@@ -56,6 +62,9 @@ export async function generateQuiz(topic: string, explanation: string): Promise<
     const data = await response.json();
     return data.questions || [];
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request was cancelled');
+    }
     console.error('Error generating quiz:', error);
     return [];
   }

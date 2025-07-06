@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Dice5, Send } from "lucide-react"
+import { Dice5, Send, Square, Edit2, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -57,7 +57,7 @@ interface ExplanationAppProps {
   activeChat?: Chat | null
   onUpdateChatConversation?: (chatId: string, conversation: Conversation) => void
   onAddMessageToChat?: (chatId: string, message: Message) => void
-  onCreateNewChat?: (title?: string, firstMessage?: string) => string
+  onCreateNewChat?: (title?: string, firstMessage?: string) => Promise<string>
 }
 
 export function ExplanationApp({ 
@@ -84,9 +84,15 @@ export function ExplanationApp({
   const [isStreaming, setIsStreaming] = useState<boolean>(false)
   const [streamTarget, setStreamTarget] = useState<string>("")
 
+  // Add cancellation and editing states
+  const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editingText, setEditingText] = useState<string>("")
+
   // Refs for textareas
   const mainTextareaRef = useRef<HTMLTextAreaElement>(null)
   const bottomTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Load conversation when active chat changes
   useEffect(() => {
@@ -97,6 +103,8 @@ export function ExplanationApp({
       setQuizQuestions([])
       setIsExplaining(false)
       setIsStreaming(false)
+      setEditingIndex(null)
+      setEditingText("")
     } else if (activeChat && !activeChat.conversation) {
       // Active chat exists but has no conversation (new chat)
       setConversation(null)
@@ -105,6 +113,8 @@ export function ExplanationApp({
       setQuizQuestions([])
       setIsExplaining(false)
       setIsStreaming(false)
+      setEditingIndex(null)
+      setEditingText("")
     }
   }, [activeChat])
 
@@ -119,6 +129,7 @@ export function ExplanationApp({
       if (currentIndex >= streamTarget.length) {
         setIsStreaming(false);
         setIsExplaining(false);
+        setAbortController(null); // Clean up abort controller
         
         // Update the conversation with the full content when streaming is complete
         setConversation(prev => {
@@ -213,6 +224,10 @@ export function ExplanationApp({
     setIsExplaining(true)
     const currentQuestion = question.trim()
     
+    // Create new abort controller for this request
+    const controller = new AbortController()
+    setAbortController(controller)
+    
     try {
       if (!conversation) {
         // First question - create new conversation or update current chat
@@ -233,7 +248,7 @@ export function ExplanationApp({
         // If we have an active chat without conversation, just update it with the conversation
         // Don't create a new chat - we already have one
         
-        const explanation = await generateExplanation(currentQuestion, length, undefined, complexity)
+        const explanation = await generateExplanation(currentQuestion, length, undefined, complexity, controller)
         
         // Add placeholder message for streaming
         const placeholderMessage: Message = { isUser: false, content: "" }
@@ -270,7 +285,8 @@ export function ExplanationApp({
           currentQuestion, 
           length, 
           conversation.items.filter(item => 'isUser' in item) as Message[],
-          complexity
+          complexity,
+          controller
         )
         
         // Add placeholder message for streaming
@@ -292,6 +308,28 @@ export function ExplanationApp({
       }
     } catch (error) {
       console.error("Failed to generate explanation:", error)
+      
+      // Check if error was due to cancellation
+      if (error instanceof Error && error.message === 'Request was cancelled') {
+        // Remove the placeholder message if it was cancelled
+        setConversation(prev => {
+          if (!prev || prev.items.length === 0) return prev
+          const lastItem = prev.items[prev.items.length - 1]
+          if ('isUser' in lastItem && !lastItem.isUser && lastItem.content === "") {
+            return {
+              ...prev,
+              items: prev.items.slice(0, -1)
+            }
+          }
+          return prev
+        })
+        
+        setIsExplaining(false)
+        setIsStreaming(false)
+        setAbortController(null)
+        return
+      }
+      
       const errorMessage: Message = { isUser: false, content: "Sorry, I couldn't generate an explanation right now. Please try again later." }
       
       setConversation(prev => {
@@ -313,6 +351,132 @@ export function ExplanationApp({
       })
       
       // Only set isExplaining to false on error, streaming will handle it on success
+      setIsExplaining(false)
+    }
+  }
+
+  const handleStop = () => {
+    if (abortController) {
+      abortController.abort()
+      setAbortController(null)
+    }
+    setIsExplaining(false)
+    setIsStreaming(false)
+    setIsGeneratingQuiz(false)
+    setStreamTarget("")
+    setStreamingText("")
+  }
+
+  const handleEditMessage = (index: number, content: string) => {
+    setEditingIndex(index)
+    setEditingText(content)
+    
+    // Focus the textarea after state update
+    setTimeout(() => {
+      if (editTextareaRef.current) {
+        editTextareaRef.current.focus()
+        editTextareaRef.current.setSelectionRange(content.length, content.length)
+      }
+    }, 0)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null)
+    setEditingText("")
+  }
+
+  const handleSaveEdit = async () => {
+    if (editingIndex === null || !conversation) return
+
+    const newContent = editingText.trim()
+    if (!newContent) return
+
+    // Update the message in the conversation
+    const updatedItems = [...conversation.items]
+    const messageToEdit = updatedItems[editingIndex] as Message
+    
+    if (!messageToEdit.isUser) return // Only allow editing user messages
+    
+    messageToEdit.content = newContent
+    
+    // Remove all messages after the edited one (they'll be regenerated)
+    const trimmedItems = updatedItems.slice(0, editingIndex + 1)
+    
+    const updatedConversation = {
+      ...conversation,
+      items: trimmedItems
+    }
+    
+    setConversation(updatedConversation)
+    setEditingIndex(null)
+    setEditingText("")
+    
+    // Update chat history
+    if (activeChat && onUpdateChatConversation) {
+      onUpdateChatConversation(activeChat.id, updatedConversation)
+    }
+    
+    // Regenerate response for the edited message
+    setIsExplaining(true)
+    const controller = new AbortController()
+    setAbortController(controller)
+    
+    try {
+      // Generate context from the conversation history up to the edited message
+      const contextMessages = trimmedItems.filter(item => 'isUser' in item) as Message[]
+      const explanation = await generateExplanation(
+        newContent, 
+        length, 
+        contextMessages.slice(0, -1), // All messages except the current one
+        complexity,
+        controller
+      )
+      
+      // Add placeholder message for streaming
+      const placeholderMessage: Message = { isUser: false, content: "" }
+      const conversationWithPlaceholder = {
+        ...updatedConversation,
+        items: [
+          ...updatedConversation.items,
+          placeholderMessage
+        ]
+      }
+      
+      setConversation(conversationWithPlaceholder)
+      
+      // Start streaming animation
+      setStreamTarget(explanation);
+      setStreamingText("");
+      setIsStreaming(true);
+    } catch (error) {
+      console.error("Failed to regenerate explanation:", error)
+      
+      if (error instanceof Error && error.message === 'Request was cancelled') {
+        setIsExplaining(false)
+        setIsStreaming(false)
+        setAbortController(null)
+        return
+      }
+      
+      const errorMessage: Message = { isUser: false, content: "Sorry, I couldn't regenerate the explanation. Please try again later." }
+      
+      setConversation(prev => {
+        if (!prev) return null
+        const updatedConversation = {
+          ...prev,
+          items: [
+            ...prev.items,
+            errorMessage
+          ]
+        }
+        
+        if (activeChat && onUpdateChatConversation) {
+          onUpdateChatConversation(activeChat.id, updatedConversation)
+        }
+        
+        return updatedConversation
+      })
+      
       setIsExplaining(false)
     }
   }
@@ -344,6 +508,10 @@ export function ExplanationApp({
     
     setIsGeneratingQuiz(true)
     
+    // Create abort controller for quiz generation
+    const controller = new AbortController()
+    setAbortController(controller)
+    
     try {
       // Extract the entire conversation history for quiz context
       const conversationHistory = conversation.items
@@ -367,7 +535,7 @@ export function ExplanationApp({
         ? recentMessages[recentMessages.length - 1] // Most recent user message
         : currentTopic;
       
-      const questions = await generateQuiz(quizTopic, fullConversationContext)
+      const questions = await generateQuiz(quizTopic, fullConversationContext, controller)
       
       // Add quiz as a separate item in conversation
       const newQuizItem = { 
@@ -409,6 +577,14 @@ export function ExplanationApp({
       
     } catch (error) {
       console.error('Failed to generate quiz:', error);
+      
+      if (error instanceof Error && error.message === 'Request was cancelled') {
+        // Just clean up state for cancelled requests
+        setIsGeneratingQuiz(false)
+        setAbortController(null)
+        return
+      }
+      
       // Show an error to the user
       setConversation(prev => {
         if (!prev) return null;
@@ -425,6 +601,7 @@ export function ExplanationApp({
       });
     } finally {
       setIsGeneratingQuiz(false);
+      setAbortController(null)
     }
   }
   
@@ -515,6 +692,18 @@ export function ExplanationApp({
                         <Send className="h-5 w-5" />
                       )}
                     </Button>
+                    
+                    {/* Stop button when AI is generating */}
+                    {isExplaining && (
+                      <Button 
+                        type="button" 
+                        size="icon"
+                        onClick={handleStop}
+                        className="bg-red-500 hover:bg-red-600 rounded-xl text-white hover:shadow-lg hover:shadow-red-500/30 hover:scale-110 transition-all duration-300 shrink-0 h-12 w-12"
+                      >
+                        <Square className="h-5 w-5" />
+                      </Button>
+                    )}
                   </div>
                 </form>
               </motion.div>
@@ -568,18 +757,69 @@ export function ExplanationApp({
                             message.isUser 
                               ? "bg-blue-600 text-white ml-auto rounded-tl-xl rounded-bl-xl rounded-tr-xl" 
                               : "bg-gray-800 text-gray-100 mr-auto rounded-tr-xl rounded-br-xl rounded-tl-xl"
-                          } p-6 max-w-[80%] rounded-xl shadow-lg`}
+                          } p-6 max-w-[80%] rounded-xl shadow-lg group relative`}
                         >
-                          <div className="whitespace-pre-wrap">
-                            {message.isUser ? message.content : (
-                              index === conversation.items.length - 1 && isStreaming && !message.isUser
-                                ? <>
-                                    <span dangerouslySetInnerHTML={{ __html: renderColoredText(streamingText) }} />
-                                    <BlinkingCursor />
-                                  </>
-                                : <span dangerouslySetInnerHTML={{ __html: renderColoredText(message.content) }} />
-                            )}
-                          </div>
+                          {/* Edit button for user messages */}
+                          {message.isUser && editingIndex !== index && !isExplaining && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleEditMessage(index, message.content)}
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30 text-white h-8 w-8 p-0"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          
+                          {editingIndex === index ? (
+                            // Edit interface
+                            <div className="space-y-3">
+                                                             <Textarea
+                                 ref={editTextareaRef}
+                                 value={editingText}
+                                 onChange={(e) => setEditingText(e.target.value)}
+                                 className="w-full bg-white/10 border-white/20 text-white resize-none rounded-xl"
+                                 rows={Math.min(Math.max(editingText.split('\n').length, 3), 8)}
+                                 onKeyDown={(e) => {
+                                   if (e.key === 'Enter' && e.ctrlKey) {
+                                     handleSaveEdit()
+                                   } else if (e.key === 'Escape') {
+                                     handleCancelEdit()
+                                   }
+                                 }}
+                               />
+                                                             <div className="flex gap-2">
+                                 <Button
+                                   size="sm"
+                                   onClick={handleSaveEdit}
+                                   className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 h-8 px-3 rounded-xl"
+                                 >
+                                   <Check className="h-4 w-4 mr-1" />
+                                   Save
+                                 </Button>
+                                 <Button
+                                   size="sm"
+                                   onClick={handleCancelEdit}
+                                   className="bg-red-500 hover:bg-red-600 text-white h-8 px-3 rounded-xl"
+                                 >
+                                   <X className="h-4 w-4 mr-1" />
+                                   Cancel
+                                 </Button>
+                               </div>
+                            </div>
+                          ) : (
+                            // Normal message display
+                            <div className="whitespace-pre-wrap">
+                              {message.isUser ? message.content : (
+                                index === conversation.items.length - 1 && isStreaming && !message.isUser
+                                  ? <>
+                                      <span dangerouslySetInnerHTML={{ __html: renderColoredText(streamingText) }} />
+                                      <BlinkingCursor />
+                                    </>
+                                  : <span dangerouslySetInnerHTML={{ __html: renderColoredText(message.content) }} />
+                              )}
+                            </div>
+                          )}
                         </motion.div>
                       )
                     }
@@ -608,7 +848,7 @@ export function ExplanationApp({
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: 0.5 }}
-                          className="flex justify-center"
+                          className="flex justify-center gap-3"
                         >
                           <Button
                             onClick={handleGenerateQuiz}
@@ -617,6 +857,18 @@ export function ExplanationApp({
                           >
                             {isGeneratingQuiz ? "Generating Quiz..." : "Generate a Mini Quiz"}
                           </Button>
+                          
+                          {/* Stop button for quiz generation */}
+                          {isGeneratingQuiz && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              onClick={handleStop}
+                              className="bg-red-700 hover:bg-red-800 text-white rounded-full h-12 w-12 hover:shadow-lg hover:shadow-red-700/50 hover:scale-110 transition-all duration-300"
+                            >
+                              <Square className="h-5 w-5" />
+                            </Button>
+                          )}
                         </motion.div>
                       ) : null}
                     </div>
@@ -689,6 +941,20 @@ export function ExplanationApp({
                       <Send className="h-4 w-4" />
                     )}
                   </Button>
+                  
+                  {/* Stop button when AI is generating */}
+                  {isExplaining && (
+                    <Button 
+                      type="button" 
+                      size="icon"
+                      onClick={handleStop}
+                      className={cn("bg-red-500 hover:bg-red-600 rounded-xl text-white hover:shadow-lg hover:shadow-red-500/30 hover:scale-110 transition-all duration-300 shrink-0",
+                        isMobile && "w-10 h-10"
+                      )}
+                    >
+                      <Square className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </form>
             </div>

@@ -104,16 +104,6 @@ export function ChatSidebar({
 
   return (
     <>
-      {/* Toggle Button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onToggle}
-        className="fixed top-4 left-4 z-50 bg-gray-900/80 backdrop-blur-sm border border-gray-700 hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl"
-      >
-        <PanelLeft className="h-4 w-4" />
-      </Button>
-
       {/* Overlay */}
       <AnimatePresence>
         {isOpen && (

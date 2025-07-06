@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { ExplanationApp } from "@/components/explanation-app"
 import { ChatSidebar } from "@/components/chat-sidebar"
-import { useChatHistory } from "@/hooks/use-chat-history"
+import { useUnifiedChats } from "@/hooks/use-unified-chats"
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -12,6 +12,7 @@ export default function Home() {
   
   const {
     chats,
+    loading,
     createNewChat,
     selectChat,
     deleteChat,
@@ -20,7 +21,7 @@ export default function Home() {
     updateChatConversation,
     addMessageToChat,
     getActiveChat
-  } = useChatHistory()
+  } = useUnifiedChats()
 
   // Detect when initial loading animation finishes
   useEffect(() => {
@@ -31,14 +32,28 @@ export default function Home() {
     return () => clearTimeout(timer)
   }, [])
 
-  const handleNewChat = () => {
-    createNewChat()
+  const handleNewChat = async () => {
+    await createNewChat()
     setSidebarOpen(false)
   }
 
   const handleChatSelect = (chatId: string) => {
     selectChat(chatId)
     setSidebarOpen(false)
+  }
+
+  // Show loading state while fetching chats
+  if (loading && !isInitialLoading) {
+    return (
+      <main className="flex flex-col h-screen bg-gray-950 items-center justify-center">
+        <div className="flex space-x-2">
+          <div className="bg-red-500 rounded-full h-3 w-3 animate-bounce" style={{ animationDelay: "0ms" }} />
+          <div className="bg-blue-500 rounded-full h-3 w-3 animate-bounce" style={{ animationDelay: "150ms" }} />
+          <div className="bg-yellow-500 rounded-full h-3 w-3 animate-bounce" style={{ animationDelay: "300ms" }} />
+        </div>
+        <p className="text-gray-400 mt-4">Loading your chats...</p>
+      </main>
+    )
   }
 
   return (
@@ -55,7 +70,7 @@ export default function Home() {
           onShareChat={shareChat}
         />
       )}
-      <Header />
+      <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
       <ExplanationApp 
         chatHistory={chats}
         activeChat={getActiveChat()}

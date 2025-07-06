@@ -40,7 +40,7 @@ export function ComplexitySlider({ value, onChange, compact = false }: Complexit
     return (
       <div className="flex items-center gap-3 min-w-0">
         {!isMobile && (
-          <span className="text-xs text-gray-400 whitespace-nowrap">Complexity:</span>
+        <span className="text-xs text-gray-400 whitespace-nowrap">Complexity:</span>
         )}
         <div className={cn("relative flex-1", isMobile ? "min-w-24" : "min-w-32")}>
           {/* Mobile popup - only show when sliding */}
@@ -78,9 +78,9 @@ export function ComplexitySlider({ value, onChange, compact = false }: Complexit
           </SliderPrimitive.Root>
         </div>
         {!isMobile && (
-          <span className="text-xs text-gray-400 whitespace-nowrap w-20 text-right">
-            {getComplexityLabel(value)}
-          </span>
+        <span className="text-xs text-gray-400 whitespace-nowrap w-20 text-right">
+          {getComplexityLabel(value)}
+        </span>
         )}
       </div>
     )
