@@ -91,15 +91,29 @@ export function ChatSidebar({
     setEditingTitle('')
   }
 
-  const formatTimestamp = (timestamp: Date) => {
+  const formatTimestamp = (timestamp: Date | string | number) => {
     const now = new Date()
-    const diff = now.getTime() - timestamp.getTime()
+    let date: Date
+    
+    // Handle different timestamp types
+    if (timestamp instanceof Date) {
+      date = timestamp
+    } else {
+      date = new Date(timestamp)
+    }
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return 'Unknown'
+    }
+    
+    const diff = now.getTime() - date.getTime()
     const hours = diff / (1000 * 60 * 60)
     
     if (hours < 1) return 'Just now'
     if (hours < 24) return `${Math.floor(hours)}h ago`
     if (hours < 168) return `${Math.floor(hours / 24)}d ago`
-    return timestamp.toLocaleDateString()
+    return date.toLocaleDateString()
   }
 
   return (
