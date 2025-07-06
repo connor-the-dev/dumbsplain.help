@@ -68,7 +68,7 @@ export function Header({ onSidebarToggle }: HeaderProps) {
               <Brain className="h-8 w-8 text-yellow-400 animate-gradient bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400 bg-[length:200%_auto] text-transparent bg-clip-text" />
             )}
             <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 text-transparent bg-clip-text animate-gradient bg-[length:200%_auto]">
-              dumbsplain.help
+              {isMobile ? "dumbsplain" : "dumbsplain.help"}
             </h1>
             {!isMobile && (
               <p className="ml-4 text-gray-400 text-sm bg-gradient-to-r from-white via-gray-300 to-white bg-[length:200%_auto] text-transparent bg-clip-text animate-gradient">
