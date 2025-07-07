@@ -115,6 +115,16 @@ export function ExplanationApp({
       setIsStreaming(false)
       setEditingIndex(null)
       setEditingText("")
+    } else if (!activeChat) {
+      // No active chat - clear everything (ChatGPT-style new chat)
+      setConversation(null)
+      setCurrentTopic("")
+      setShowQuiz(false)
+      setQuizQuestions([])
+      setIsExplaining(false)
+      setIsStreaming(false)
+      setEditingIndex(null)
+      setEditingText("")
     }
   }, [activeChat])
 
@@ -230,7 +240,7 @@ export function ExplanationApp({
     
     try {
       if (!conversation) {
-        // First question - create new conversation or update current chat
+        // First question - create new conversation
         setShowQuiz(false)
         setQuizQuestions([])
         setCurrentTopic(currentQuestion)
@@ -245,8 +255,10 @@ export function ExplanationApp({
         setConversation(newConversation)
         setQuestion("")
         
-        // If we have an active chat without conversation, just update it with the conversation
-        // Don't create a new chat - we already have one
+        // If no active chat exists, create a new one (ChatGPT-style behavior)
+        if (!activeChat && onCreateNewChat) {
+          await onCreateNewChat(currentQuestion, currentQuestion)
+        }
         
         const explanation = await generateExplanation(currentQuestion, length, undefined, complexity, controller)
         

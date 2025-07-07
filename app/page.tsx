@@ -4,11 +4,19 @@ import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { ExplanationApp } from "@/components/explanation-app"
 import { ChatSidebar } from "@/components/chat-sidebar"
+import { SharePopup } from "@/components/share-popup"
 import { useUnifiedChats } from "@/hooks/use-unified-chats"
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [sharePopupOpen, setSharePopupOpen] = useState(false)
+  const [shareData, setShareData] = useState({
+    shareUrl: '',
+    chatTitle: '',
+    isLoading: false,
+    error: ''
+  })
   
   const {
     chats,
@@ -20,7 +28,8 @@ export default function Home() {
     shareChat,
     updateChatConversation,
     addMessageToChat,
-    getActiveChat
+    getActiveChat,
+    clearCurrentState
   } = useUnifiedChats()
 
   // Detect when initial loading animation finishes
@@ -32,14 +41,43 @@ export default function Home() {
     return () => clearTimeout(timer)
   }, [])
 
-  const handleNewChat = async () => {
-    await createNewChat()
+  const handleNewChat = () => {
+    clearCurrentState()
     setSidebarOpen(false)
   }
 
   const handleChatSelect = (chatId: string) => {
     selectChat(chatId)
     setSidebarOpen(false)
+  }
+
+  const handleShareChat = async (chatId: string) => {
+    const chat = chats.find(c => c.id === chatId)
+    if (!chat) return
+
+    setShareData({
+      shareUrl: '',
+      chatTitle: chat.title,
+      isLoading: true,
+      error: ''
+    })
+    setSharePopupOpen(true)
+
+    try {
+      const result = await shareChat(chatId)
+      setShareData(prev => ({
+        ...prev,
+        shareUrl: result.shareUrl,
+        isLoading: false,
+        error: ''
+      }))
+    } catch (error) {
+      setShareData(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to share chat'
+      }))
+    }
   }
 
   // Show loading state while fetching chats
@@ -67,7 +105,7 @@ export default function Home() {
           onNewChat={handleNewChat}
           onDeleteChat={deleteChat}
           onRenameChat={renameChat}
-          onShareChat={shareChat}
+          onShareChat={handleShareChat}
         />
       )}
       <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
@@ -77,6 +115,14 @@ export default function Home() {
         onUpdateChatConversation={updateChatConversation}
         onAddMessageToChat={addMessageToChat}
         onCreateNewChat={createNewChat}
+      />
+      <SharePopup
+        isOpen={sharePopupOpen}
+        onClose={() => setSharePopupOpen(false)}
+        shareUrl={shareData.shareUrl}
+        chatTitle={shareData.chatTitle}
+        isLoading={shareData.isLoading}
+        error={shareData.error}
       />
     </main>
   )

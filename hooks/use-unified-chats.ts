@@ -109,30 +109,50 @@ export function useUnifiedChats() {
     setLoading(false)
   }, [authLoading, chats.length, setChats, setActiveId])
 
-  // Ensure active chat is properly set
+    // Ensure active chat is properly set
   useEffect(() => {
     if (chats.length > 0) {
-      const updatedChats = chats.map(chat => ({
-        ...chat,
-        isActive: chat.id === activeId
-      }))
+      const currentActiveChat = chats.find(chat => chat.isActive)
+      const targetActiveChat = chats.find(chat => chat.id === activeId)
       
-      // Only update if there's a change to avoid infinite loops
-      const hasActiveChat = chats.some(chat => chat.isActive)
-      const needsUpdate = !hasActiveChat || chats.some((chat, index) => 
-        chat.isActive !== updatedChats[index].isActive
-      )
-      
-      if (needsUpdate) {
-        // If no active chat or activeId doesn't exist, make first chat active
-        if (!activeId || !chats.find(chat => chat.id === activeId)) {
-          updatedChats[0].isActive = true
-          setActiveId(updatedChats[0].id)
+      // Case 1: activeId exists but doesn't match any chat - select first chat
+      if (activeId && !targetActiveChat) {
+        const firstChat = chats[0]
+        if (!firstChat.isActive) {
+          const updatedChats = chats.map(chat => ({
+            ...chat,
+            isActive: chat.id === firstChat.id
+          }))
+          setChats(updatedChats)
         }
+        setActiveId(firstChat.id)
+      }
+      // Case 2: activeId exists and matches a chat, but that chat isn't marked active
+      else if (activeId && targetActiveChat && !targetActiveChat.isActive) {
+        const updatedChats = chats.map(chat => ({
+          ...chat,
+          isActive: chat.id === activeId
+        }))
+        setChats(updatedChats)
+      }
+      // Case 3: activeId exists and matches a chat, but another chat is marked active
+      else if (activeId && targetActiveChat && currentActiveChat && currentActiveChat.id !== activeId) {
+        const updatedChats = chats.map(chat => ({
+          ...chat,
+          isActive: chat.id === activeId
+        }))
+        setChats(updatedChats)
+      }
+      // Case 4: activeId is empty (new chat mode) - make sure no chat is active
+      else if (!activeId && currentActiveChat) {
+        const updatedChats = chats.map(chat => ({
+          ...chat,
+          isActive: false
+        }))
         setChats(updatedChats)
       }
     }
-  }, [chats, activeId, setChats, setActiveId])
+  }, [activeId]) // Only depend on activeId, not chats
 
   const createNewChat = useCallback(async (title?: string, firstMessage?: string) => {
     const tempId = `temp-${Date.now()}`
@@ -318,13 +338,47 @@ export function useUnifiedChats() {
     }
   }, [chats, setChats, user, supabase, activeId, setActiveId])
 
-  const shareChat = useCallback((chatId: string) => {
-    console.log('Sharing chat:', chatId)
-  }, [])
+  const shareChat = useCallback(async (chatId: string) => {
+    if (!user) {
+      throw new Error('Authentication required to share chats')
+    }
+
+    try {
+      const response = await fetch('/api/share-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chatId }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to share chat')
+      }
+
+      return {
+        shareUrl: data.shareUrl,
+        chatId: data.chatId,
+        title: data.title,
+      }
+    } catch (error) {
+      console.error('Error sharing chat:', error)
+      throw error
+    }
+  }, [user])
 
   const getActiveChat = useCallback(() => {
     return chats.find(chat => chat.isActive) || null
   }, [chats])
+
+  const clearCurrentState = useCallback(() => {
+    // Clear active chat to prepare for new chat creation on first message
+    const updatedChats = chats.map(chat => ({ ...chat, isActive: false }))
+    setChats(updatedChats)
+    setActiveId('')
+  }, [chats, setChats, setActiveId])
 
   return {
     chats,
@@ -336,6 +390,7 @@ export function useUnifiedChats() {
     updateChatConversation,
     addMessageToChat,
     shareChat,
-    getActiveChat
+    getActiveChat,
+    clearCurrentState
   }
 } 
