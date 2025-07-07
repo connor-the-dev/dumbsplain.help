@@ -154,6 +154,100 @@ export function useUnifiedChats() {
     }
   }, [activeId]) // Only depend on activeId, not chats
 
+  // Handle authentication state changes
+  useEffect(() => {
+    let isMounted = true
+    
+    if (!authLoading) {
+      const handleAuthStateChange = async () => {
+        if (user) {
+          // User logged in - clear localStorage chats and load from Supabase
+          console.log('User logged in, loading chats from Supabase and clearing localStorage')
+          
+          // Clear localStorage first
+          try {
+            localStorage.removeItem('dumbsplain-chat-history')
+            localStorage.removeItem('dumbsplain-active-chat')
+          } catch (error) {
+            console.error('Error clearing localStorage on login:', error)
+          }
+          
+          try {
+            // Fetch user's chats from Supabase
+            const { data: supabaseChats, error } = await supabase
+              .from('chats')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('updated_at', { ascending: false })
+
+            if (error) {
+              console.error('Error loading user chats:', error)
+              return
+            }
+
+            // Convert Supabase chats to local format
+            const userChats = (supabaseChats || []).map(supabaseChatToLocal)
+            
+            if (isMounted) {
+              if (userChats.length > 0) {
+                // Set the first chat as active
+                const chatsWithActiveFlag = userChats.map((chat, index) => ({
+                  ...chat,
+                  isActive: index === 0
+                }))
+                setChats(chatsWithActiveFlag)
+                setActiveId(chatsWithActiveFlag[0].id)
+              } else {
+                // No chats found, create a new empty chat
+                const newEmptyChat: Chat = {
+                  id: `temp-${Date.now()}`,
+                  title: 'New Chat',
+                  timestamp: new Date(),
+                  isActive: true,
+                  conversation: undefined
+                }
+                setChats([newEmptyChat])
+                setActiveId(newEmptyChat.id)
+              }
+            }
+          } catch (error) {
+            console.error('Error during auth state change:', error)
+          }
+        } else {
+          // User logged out - clear chats and localStorage, start fresh
+          console.log('User logged out, clearing chats and localStorage, starting fresh')
+          
+          if (isMounted) {
+            // Clear localStorage
+            try {
+              localStorage.removeItem('dumbsplain-chat-history')
+              localStorage.removeItem('dumbsplain-active-chat')
+            } catch (error) {
+              console.error('Error clearing localStorage:', error)
+            }
+            
+            // Create a new empty chat for anonymous usage
+            const newEmptyChat: Chat = {
+              id: `temp-${Date.now()}`,
+              title: 'New Chat',
+              timestamp: new Date(),
+              isActive: true,
+              conversation: undefined
+            }
+            setChats([newEmptyChat])
+            setActiveId(newEmptyChat.id)
+          }
+        }
+      }
+
+      handleAuthStateChange()
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [user, authLoading, setChats, setActiveId, supabase]) // Re-run when user auth state changes
+
   const createNewChat = useCallback(async (title?: string, firstMessage?: string) => {
     const tempId = `temp-${Date.now()}`
     const newChat: Chat = {
