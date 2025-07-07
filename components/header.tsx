@@ -55,8 +55,8 @@ export function Header({ onSidebarToggle }: HeaderProps) {
             variant="ghost"
             size="sm"
             onClick={onSidebarToggle}
-            className={`absolute bg-gray-900/80 backdrop-blur-sm border border-gray-700 hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl ${
-              isMobile ? 'left-4' : '-left-[370px]'
+            className={`fixed top-4 z-40 bg-gray-900/80 backdrop-blur-sm border border-gray-700 hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl ${
+              isMobile ? 'left-4' : 'left-4'
             }`}
           >
             <PanelLeft className="h-4 w-4" />

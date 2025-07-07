@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-import type { Chat } from '@/hooks/use-chat-history'
+import type { Chat } from '@/hooks/use-unified-chats'
 
 interface ChatSidebarProps {
   isOpen: boolean
@@ -268,7 +268,7 @@ export function ChatSidebar({
                                   e.stopPropagation()
                                   handleRenameStart(chat)
                                 }}
-                                className="hover:bg-gray-700 text-gray-300 hover:text-white"
+                                className="hover:bg-gray-700 text-gray-300 hover:text-white rounded-none"
                               >
                                 <Edit2 className="h-4 w-4 mr-2" />
                                 Rename

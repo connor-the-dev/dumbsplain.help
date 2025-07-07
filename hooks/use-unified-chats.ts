@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { createClientSupabase } from '@/lib/supabase'
 import { Database } from '@/lib/database.types'
 import { useAuth } from '@/lib/auth-context'
@@ -154,111 +154,6 @@ export function useUnifiedChats() {
     }
   }, [activeId]) // Only depend on activeId, not chats
 
-  // Load user chats from Supabase for authenticated users (ChatGPT approach)
-  const prevUserRef = useRef<typeof user>(undefined)
-  const hasLoadedUserChatsRef = useRef(false)
-  
-  useEffect(() => {
-    let isMounted = true
-    
-    if (!authLoading) {
-      const previousUser = prevUserRef.current
-      const currentUser = user
-      
-      // Detect login/logout events
-      const isLogin = !previousUser && currentUser
-      const isLogout = previousUser && !currentUser
-      
-      const handleAuthStateChange = async () => {
-        if (isLogin && currentUser && !hasLoadedUserChatsRef.current) {
-          // User just logged in - load their chats from Supabase (ChatGPT style)
-          console.log('User logged in, loading their chats from Supabase')
-          
-          try {
-            // Fetch user's chats from Supabase
-            const { data: supabaseChats, error } = await supabase
-              .from('chats')
-              .select('*')
-              .eq('user_id', currentUser.id)
-              .order('updated_at', { ascending: false })
-
-            if (error) {
-              console.error('Error loading user chats:', error)
-              return
-            }
-
-            // Convert Supabase chats to local format
-            const userChats = (supabaseChats || []).map(supabaseChatToLocal)
-            
-            if (isMounted) {
-              if (userChats.length > 0) {
-                // Set the first chat as active
-                const chatsWithActiveFlag = userChats.map((chat, index) => ({
-                  ...chat,
-                  isActive: index === 0
-                }))
-                setChats(chatsWithActiveFlag)
-                setActiveId(chatsWithActiveFlag[0].id)
-                console.log(`Loaded ${userChats.length} chats for user`)
-              } else {
-                // No chats found, create a new empty chat
-                const newEmptyChat: Chat = {
-                  id: `temp-${Date.now()}`,
-                  title: 'New Chat',
-                  timestamp: new Date(),
-                  isActive: true,
-                  conversation: undefined
-                }
-                setChats([newEmptyChat])
-                setActiveId(newEmptyChat.id)
-                console.log('No user chats found, created new empty chat')
-              }
-              hasLoadedUserChatsRef.current = true
-            }
-          } catch (error) {
-            console.error('Error during user chat loading:', error)
-          }
-        } else if (isLogout) {
-          // User just logged out - clear everything and start fresh for anonymous usage
-          console.log('User logged out, starting fresh for anonymous usage')
-          
-          if (isMounted) {
-            // Clear localStorage to remove any user data
-            try {
-              localStorage.removeItem('dumbsplain-chat-history')
-              localStorage.removeItem('dumbsplain-active-chat')
-            } catch (error) {
-              console.error('Error clearing localStorage on logout:', error)
-            }
-            
-            // Create a new empty chat for anonymous usage
-            const newEmptyChat: Chat = {
-              id: `temp-${Date.now()}`,
-              title: 'New Chat',
-              timestamp: new Date(),
-              isActive: true,
-              conversation: undefined
-            }
-            setChats([newEmptyChat])
-            setActiveId(newEmptyChat.id)
-            hasLoadedUserChatsRef.current = false
-          }
-        }
-      }
-
-      if (isLogin || isLogout) {
-        handleAuthStateChange()
-      }
-      
-      // Update the previous user reference
-      prevUserRef.current = currentUser
-    }
-
-    return () => {
-      isMounted = false
-    }
-  }, [user, authLoading, setChats, setActiveId, supabase])
-
   const createNewChat = useCallback(async (title?: string, firstMessage?: string) => {
     const tempId = `temp-${Date.now()}`
     const newChat: Chat = {
@@ -402,8 +297,6 @@ export function useUnifiedChats() {
         if (chatId.startsWith('temp-') || /^\d+$/.test(chatId)) {
           // Save new chat to Supabase
           const { title, messages } = localChatToSupabase(updatedChat)
-          console.log('Saving new chat to Supabase:', { chatId, title, messageCount: messages.length })
-          
           supabase
             .from('chats')
             .insert({
@@ -419,7 +312,6 @@ export function useUnifiedChats() {
               if (error) {
                 console.error('Background Supabase save failed:', error)
               } else if (data) {
-                console.log('Successfully saved chat to Supabase:', data.id)
                 // Update the chat ID in localStorage
                 const newUpdatedChats = updatedChats.map(c =>
                   c.id === chatId ? { ...c, id: data.id } : c
@@ -433,19 +325,13 @@ export function useUnifiedChats() {
         } else {
           // Update existing chat in Supabase
           const { title, messages } = localChatToSupabase(updatedChat)
-          console.log('Updating existing chat in Supabase:', { chatId, title, messageCount: messages.length })
-          
           supabase
             .from('chats')
             .update({ title, messages: messages as any, updated_at: new Date().toISOString() })
             .eq('id', chatId)
             .eq('user_id', user.id)
             .then(({ error }) => {
-              if (error) {
-                console.error('Background Supabase update failed:', error)
-              } else {
-                console.log('Successfully updated chat in Supabase:', chatId)
-              }
+              if (error) console.error('Background Supabase update failed:', error)
             })
         }
       }
